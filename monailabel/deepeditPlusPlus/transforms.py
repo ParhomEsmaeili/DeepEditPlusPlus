@@ -25,7 +25,7 @@ from monai.data import MetaTensor
 from monai.networks.layers import GaussianFilter
 from monai.transforms.transform import MapTransform, Randomizable, Transform
 from monai.utils import min_version, optional_import
-from monai.transforms import ScaleIntensityRange, ScaleIntensityRangePercentiles, ScaleIntensity, NormalizeIntensity#, ClipIntensityPercentiles
+from monai.transforms import ScaleIntensityRange, ScaleIntensityRangePercentiles, ScaleIntensity, NormalizeIntensity, ClipIntensityPercentiles
 
 measure, _ = optional_import("skimage.measure", "0.14.2", min_version)
 
@@ -1149,7 +1149,7 @@ class ExtractMeta(MapTransform):
         self, keys: KeysCollection, allow_missing_keys: bool = False
     ):
         """
-        Changing the labels from the original dataset, to what is in the config.csv or config text file. 
+        Extracting the meta information from the original state of the image.. 
 
         Args:
             keys: The ``keys`` parameter will be used to get and set the actual data item to transform
