@@ -1216,7 +1216,7 @@ class AddRandomGuidanceDeepEditdFixed(Randomizable, MapTransform):
 
     def randomize(self, data=None):
         probability = data[self.probability]
-        self._will_interact = self.R.choice([True, False], p=[probability, 1.0 - probability])
+        self.will_interact = self.R.choice([True, False], p=[probability, 1.0 - probability])
 
     def find_guidance(self, discrepancy):
         distance = distance_transform_cdt(discrepancy).flatten()

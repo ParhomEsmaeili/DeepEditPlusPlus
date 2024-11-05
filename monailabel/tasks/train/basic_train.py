@@ -20,6 +20,11 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import Any, List
 
+from os.path import dirname as up
+import sys
+app_dir = up(up(up(up(os.path.abspath(__file__)))))
+sys.path.append(app_dir)
+############
 import ignite
 import torch
 import torch.distributed
@@ -36,8 +41,22 @@ from monai.data import (
     partition_dataset,
     set_track_meta,
 )
-from monai.engines import SupervisedEvaluator, SupervisedTrainer
-from monai.handlers import (
+# from monai.engines import SupervisedEvaluator, SupervisedTrainer
+
+# from monai.handlers import (
+#     CheckpointLoader,
+#     CheckpointSaver,
+#     LrScheduleHandler,
+#     MeanDice,
+#     MLFlowHandler,
+#     StatsHandler,
+#     TensorBoardStatsHandler,
+#     ValidationHandler,
+#     from_engine,
+#     stopping_fn_from_metric,
+# )
+
+from monai_handlers import (
     CheckpointLoader,
     CheckpointSaver,
     LrScheduleHandler,
@@ -49,7 +68,8 @@ from monai.handlers import (
     from_engine,
     stopping_fn_from_metric,
 )
-from monai.inferers import SimpleInferer
+
+# from monai.inferers import SimpleInferer
 from monai.transforms import Compose
 
 from monailabel.config import settings
@@ -59,6 +79,24 @@ from monailabel.tasks.train.handler import PublishStatsAndModel, prepare_stats
 from monailabel.utils.others.generic import device_list, name_to_device, path_to_uri, remove_file
 
 logger = logging.getLogger(__name__)
+
+#######################################################################################################
+
+#Parametrisation info.
+
+
+
+#Importing the engines in a parametrised manner:
+
+from engines.standard_engines import SupervisedTrainer as DefaultSupervisedTrainer
+from engines.standard_engines import SupervisedEvaluator as DefaultSupervisedEvaluator 
+
+# from monai.engines import SupervisedTrainer as DefaultSupervisedTrainer
+# from monai.engines import SupervisedEvaluator as DefaultSupervisedEvaluator
+
+#Importing the interactive version..
+from engines.interactive_seg_engines import SupervisedTrainer as InteractiveSupervisedTrainer
+from engines.interactive_seg_engines import SupervisedEvaluator as InteractiveSupervisedEvaluator 
 
 
 class Context:
@@ -95,7 +133,7 @@ class Context:
 
 class BasicTrainTask(TrainTask):
     """
-    This provides Basic Train Task to train a model using SupervisedTrainer and SupervisedEvaluator from MONAI
+    This provides Basic Train Task to train a model using the training engines.
     """
 
     TRAIN_METRIC_MEAN_DICE = "train_mean_dice"
@@ -113,7 +151,7 @@ class BasicTrainTask(TrainTask):
         load_dict=None,
         publish_path=None,
         stats_path=None,
-        train_save_interval=20,
+        train_save_interval=5,
         val_interval=1,
         n_saved=5,
         final_filename="checkpoint_final.pt",
@@ -126,6 +164,8 @@ class BasicTrainTask(TrainTask):
         tracking="mlflow" if settings.MONAI_LABEL_TRACKING_ENABLED else None,
         tracking_uri=settings.MONAI_LABEL_TRACKING_URI,
         tracking_experiment_name=None,
+        ############################ New configs for parametrisation###########
+        engine_version_param = '0'
     ):
         """
         :param model_dir: Base Model Dir to save the model checkpoints, events etc...
@@ -149,6 +189,7 @@ class BasicTrainTask(TrainTask):
         :param tracking: Tracking Manager for Experiment Management (only 'mlflow' is supported)
         :param tracking_uri: Tracking URI for Experiment Management
         :param tracking_experiment_name: Name for tracking experiment
+        :param engine_version_param: The version parametrisation for the engine that we are using at the base of our application (default or interactive seg)
         """
         super().__init__(description)
 
@@ -181,8 +222,6 @@ class BasicTrainTask(TrainTask):
 
         self._train_save_interval = train_save_interval
         self._val_interval = val_interval
-        #CHANGING N_SAVED SO WE DONT ERASE CHECKPOINTS!
-        # self._n_saved = self._config["max_epochs"]//self._train_save_interval
         self._n_saved = n_saved
 
         self._final_filename = final_filename
@@ -196,6 +235,15 @@ class BasicTrainTask(TrainTask):
         self._tracking = tracking
         self._tracking_uri = tracking_uri
         self._tracking_experiment_name = tracking_experiment_name
+
+
+        ############ Version parametrisation information #############
+        self.engine_version_param = engine_version_param 
+
+        self.supported_engine_versions = ['0','1']
+
+        assert self.engine_version_param in self.supported_engine_versions, "The selected engine version was not supported by the framework"
+
 
     def info(self):
         r = super().info()
@@ -269,8 +317,8 @@ class BasicTrainTask(TrainTask):
 
         return self._dataloader(context, dataset, context.train_batch_size, num_workers, shuffle)
 
-    def train_inferer(self, context: Context):
-        return SimpleInferer()
+    # def train_inferer(self, context: Context):
+    #     return SimpleInferer()
 
     def train_key_metric(self, context: Context):
         return {
@@ -388,6 +436,10 @@ class BasicTrainTask(TrainTask):
     def val_inferer(self, context: Context):
         pass
 
+    @abstractmethod
+    def train_inferer(self, context: Context):
+        pass
+
     def _load_external_ds(self, ds):
         if ds and isinstance(ds, str) and os.path.exists(ds):
             with open(ds) as fp:
@@ -436,7 +488,7 @@ class BasicTrainTask(TrainTask):
         
         req = copy.deepcopy(self._config)
         req.update(copy.deepcopy(request))
-        req["run_id"] = datetime.now().strftime("%Y%m%d_%H%M%S")
+        req["run_id"] = datetime.now().strftime("%Y%m%d_%H%M%S") #datetime.now().strftime("%Y%m%d_%H%M%S")
 
         device = name_to_device(req.get("device", "cuda"))
         req["device"] = device
@@ -507,7 +559,7 @@ class BasicTrainTask(TrainTask):
             ignite.distributed.sync()
 
         context.device = self._device(context)
-        context.imaging_modality = request["imaging_modality"]
+        # context.imaging_modality = request["imaging_modality"]
         context.max_epochs = request["max_epochs"]
         context.train_batch_size = request["train_batch_size"]
         context.val_batch_size = request["val_batch_size"]
@@ -660,18 +712,32 @@ class BasicTrainTask(TrainTask):
                     )
                 )
 
-            evaluator = SupervisedEvaluator(
-                device=context.device,
-                val_data_loader=self.val_data_loader(context),
-                network=context.network,
-                inferer=self.val_inferer(context),
-                postprocessing=self._validate_transforms(self.val_post_transforms(context), "Validation", "post"),
-                key_val_metric=self.val_key_metric(context),
-                additional_metrics=self.val_additional_metrics(context),
-                val_handlers=val_hanlders,
-                iteration_update=self.val_iteration_update(context),
-                event_names=self.event_names(context),
-            )
+            if self.engine_version_param == '0':
+                evaluator = DefaultSupervisedEvaluator(
+                    device=context.device,
+                    val_data_loader=self.val_data_loader(context),
+                    network=context.network,
+                    inferer=self.val_inferer(context),
+                    postprocessing=self._validate_transforms(self.val_post_transforms(context), "Validation", "post"),
+                    key_val_metric=self.val_key_metric(context),
+                    additional_metrics=self.val_additional_metrics(context),
+                    val_handlers=val_hanlders,
+                    iteration_update=self.val_iteration_update(context),
+                    event_names=self.event_names(context),
+                )
+            elif self.engine_version_param == '1':
+                evaluator = InteractiveSupervisedEvaluator(
+                    device=context.device,
+                    val_data_loader=self.val_data_loader(context),
+                    network=context.network,
+                    inferer=self.val_inferer(context),
+                    postprocessing=self._validate_transforms(self.val_post_transforms(context), "Validation", "post"),
+                    key_val_metric=self.val_key_metric(context),
+                    additional_metrics=self.val_additional_metrics(context),
+                    val_handlers=val_hanlders,
+                    iteration_update=self.val_iteration_update(context),
+                    event_names=self.event_names(context),
+                )
         return evaluator
 
     def _create_trainer(self, context: Context):
@@ -695,22 +761,42 @@ class BasicTrainTask(TrainTask):
 
         self._load_checkpoint(context, train_handlers)
 
-        return SupervisedTrainer(
-            device=context.device,
-            max_epochs=context.max_epochs,
-            train_data_loader=self.train_data_loader(context),
-            network=context.network,
-            optimizer=context.optimizer,
-            loss_function=self.loss_function(context),
-            inferer=self.train_inferer(context),
-            amp=self._amp,
-            postprocessing=self._validate_transforms(self.train_post_transforms(context), "Training", "post"),
-            key_train_metric=self.train_key_metric(context),
-            additional_metrics=self.train_additional_metrics(context),
-            train_handlers=train_handlers,
-            iteration_update=self.train_iteration_update(context),
-            event_names=self.event_names(context),
-        )
+        if self.engine_version_param == '0':
+
+            return DefaultSupervisedTrainer(
+                device=context.device,
+                max_epochs=context.max_epochs,
+                train_data_loader=self.train_data_loader(context),
+                network=context.network,
+                optimizer=context.optimizer,
+                loss_function=self.loss_function(context),
+                inferer=self.train_inferer(context),
+                amp=self._amp,
+                postprocessing=self._validate_transforms(self.train_post_transforms(context), "Training", "post"),
+                key_train_metric=self.train_key_metric(context),
+                additional_metrics=self.train_additional_metrics(context),
+                train_handlers=train_handlers,
+                iteration_update=self.train_iteration_update(context),
+                event_names=self.event_names(context),
+            )
+        elif self.engine_version_param == '1':
+
+            return InteractiveSupervisedTrainer(
+                device=context.device,
+                max_epochs=context.max_epochs,
+                train_data_loader=self.train_data_loader(context),
+                network=context.network,
+                optimizer=context.optimizer,
+                loss_function=self.loss_function(context),
+                inferer=self.train_inferer(context),
+                amp=self._amp,
+                postprocessing=self._validate_transforms(self.train_post_transforms(context), "Training", "post"),
+                key_train_metric=self.train_key_metric(context),
+                additional_metrics=self.train_additional_metrics(context),
+                train_handlers=train_handlers,
+                iteration_update=self.train_iteration_update(context),
+                event_names=self.event_names(context),
+            )
 
     def _load_checkpoint(self, context, train_handlers):
         load_path = self.load_path(context.output_dir, context.pretrained)

@@ -163,6 +163,7 @@ results*
 
 #data
 datasets
+external_validation
 
 #bundle 
 monaibundle

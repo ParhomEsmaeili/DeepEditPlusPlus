@@ -505,20 +505,18 @@ class BasicInferTask(InferTask):
         """
 
         inferer = self.inferer(data)
-        #print(dir(self))
         logger.info(f"Inferer:: {device} => {inferer.__class__.__name__} => {inferer.__dict__}")
-        #print('hello i am here')
         network = self._get_network(device, data)
         if network:
             inputs = data[self.input_key]
             
-            #save_folder = os.path.join('/home/parhomesmaeili/Inference_InputImages', str(i)+'.nii.gz')
-            for i in range(inputs.size(dim=0)):
-                    placeholder_tensor = inputs.cpu()
-                    placeholder = np.array(placeholder_tensor[i])
-                    #print(placeholder)
+            # save_folder = os.path.join('/home/parhomesmaeili/Inference_InputImages')
+            # for i in range(inputs.size(dim=0)):
+            #         placeholder_tensor = inputs.cpu()
+            #         placeholder = np.array(placeholder_tensor[i])
+            #         #print(placeholder)
                     
-                    nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Inference_InputImages', str(i)+'.nii.gz'))
+            #         nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Inference_InputImages', str(i)+'.nii.gz'))
 
             inputs = inputs if torch.is_tensor(inputs) else torch.from_numpy(inputs)
             inputs = inputs[None] if convert_to_batch else inputs
@@ -532,7 +530,7 @@ class BasicInferTask(InferTask):
             #         placeholder_tensor = outputs[0].cpu()
             #         placeholder = np.array(placeholder_tensor[i])
             #         #print(placeholder)
-            #         nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Inference_Images', str(i)+'.nii.gz'))
+            #         nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Inference Images', str(i)+'.nii.gz'))
             if device.startswith("cuda"):
                 torch.cuda.empty_cache()
 

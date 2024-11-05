@@ -9,13 +9,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from os.path import dirname as up
+import os
+import sys
+deepeditpp_utils_dir = os.path.join(up(up(os.path.abspath(__file__))), 'app_utils', 'deepeditplusplus_utils')
+sys.path.append(deepeditpp_utils_dir) 
+
 import logging
 import os
 from typing import Any, Dict, Optional, Union
 
-import lib.infers
-import lib.trainers
-from monai.networks.nets import UNETR, DynUNet
+# import lib.infers
+# import lib.trainers
+# from monai.networks.nets import UNETR, DynUNet
 
 from monailabel.interfaces.config import TaskConfig
 from monailabel.interfaces.tasks.infer_v2 import InferTask, InferType
@@ -28,13 +34,32 @@ from monailabel.tasks.scoring.epistemic import EpistemicScoring
 from monailabel.tasks.scoring.sum import Sum
 from monailabel.utils.others.generic import download_file, strtobool
 
-####################################################################### External Validation metric imports
+####################################################################### 
+# 
+# External Validation metric imports 
+
+
 import csv
 import shutil
 import json
 import datetime 
-from os.path import dirname as up 
 import copy 
+
+##########################################################################
+
+#Imports from the utils (for parametrisation of the config file):
+
+config_utils_dir = os.path.join(deepeditpp_utils_dir, 'config_utils')
+sys.path.append(config_utils_dir) 
+
+from config_utils.network_config_utils import run_get_network_configs 
+from config_utils.scoring_config_utils import run_scoring_method
+from config_utils.a_l_strategy_config_utils import run_strategy_method 
+from config_utils.infer_config_utils import run_infer_class_config 
+from config_utils.train_config_utils import run_train_class_config 
+
+######################################################################
+###############################
 logger = logging.getLogger(__name__)
 
 
@@ -42,380 +67,326 @@ class DeepEditPlusPlus(TaskConfig):
     def init(self, name: str, model_dir: str, conf: Dict[str, str], planner: Any, **kwargs):
         super().init(name, model_dir, conf, planner, **kwargs)
 
-        self.epistemic_enabled = None
-        self.epistemic_samples = None
+        '''
+        Config file which sets up the train and inference setup scripts. 
+
+        Inputs: Name of the ?
+        Model directory: The upper most level model directory which will contain every folder containing a training run's sets of model parameters/information.
+        Conf: The configuration dictionary used to configure the train/inference setup scripts/contains all of the information used for these scripts.
+        Planner: The heuristic planner used to extract information from.
+
+        '''
+
+        ################# Setting up the imports for the version parameters being used for the train/infer components #########################################
+
+        #Split it by the mode, whether it is for train or for inference. This is incase there are disparities between the two for instances where variable names
+        #may be the same.
+
+        if self.conf.get('config_mode') == 'train':
+
+            #For train, set the version parameters of the components in train_setup in this manner. 
+
+            train_version_params = dict() 
+
+            train_version_params["optimizer_version_param"] = self.conf.get("optimizer_version_param")
+            train_version_params["loss_func_version_param"] = self.conf.get("loss_func_version_param")
+            train_version_params["get_click_version_param"] = self.conf.get("get_click_version_param")
+            train_version_params["train_pre_transforms_version_param"] = self.conf.get("train_pre_transforms_version_param")
+            train_version_params["train_post_transforms_version_param"] = self.conf.get("train_post_transforms_version_param")
+            train_version_params["val_pre_transforms_version_param"] = self.conf.get("val_pre_transforms_version_param")
+            train_version_params["train_inferer_version_param"] = self.conf.get("train_inferer_version_param")
+            train_version_params["val_inferer_version_param"] = self.conf.get("val_inferer_version_param")
+            train_version_params["train_iter_update_version_param"] = self.conf.get("train_iter_update_version_param")
+            train_version_params["val_iter_update_version_param"] = self.conf.get("val_iter_update_version_param")
+            train_version_params["train_key_metric_version_param"] = self.conf.get("train_key_metric_version_param")
+            train_version_params["val_key_metric_version_param"] = self.conf.get("val_key_metric_version_param")
+            train_version_params["train_handler_version_param"] = self.conf.get("train_handler_version_param")
+            train_version_params["engine_version_param"] = self.conf.get("engine_version_param")
+
+            self.train_version_params = train_version_params 
+            self.network_version_param = self.conf.get("network_version_param")
+
+            self.train_config_version_param = self.conf.get("train_config_version_param")
 
         
-        ###################### Setting the location to extract the label configs from ####################
-        dir_name = up(up(up(up(up(__file__)))))
+        elif self.conf.get('config_mode') == 'infer':
+
+            #For inference, set the version parameters in inference_setup in this manner. 
+
+            infer_version_params = dict() 
+
+            infer_version_params['pre_transforms_version_param'] = self.conf.get("pre_transforms_version_param")
+            infer_version_params['inverse_transforms_version_param'] = self.conf.get("inverse_transforms_version_param")
+            infer_version_params['post_transforms_version_param'] = self.conf.get("post_transforms_version_param")
+            infer_version_params['inferer_version_param'] = self.conf.get("inferer_version_param")
+
+            self.infer_version_params = infer_version_params 
+
+            self.network_version_param = self.conf.get("network_version_param")
+            
+            self.infer_config_version_param = self.conf.get("infer_config_version_param")
+
+        ################################################################################################
+
+        #Setting up the set of version param imports required for the active learning/scoring methods. Hardcoding this for now.
+
+        self.strategy_method_version_param = self.conf.get("strategy_method_version_param")
+        self.scoring_method_version_param = self.conf.get("scoring_method_version_param")
+
+        ############################################################################################################################
+
+
+
+
+        ###################### Setting the location to extract the class label configs and dataset configs from ####################
+        codebase_dir_name = up(up(up(up(up(__file__)))))
         
-        label_config_path = os.path.join(dir_name, "monailabel", os.path.splitext(os.path.basename(__file__))[0], self.conf.get('dataset_name') + '_label_configs.txt')
+        label_config_path = os.path.join(codebase_dir_name, 'datasets', self.conf.get('dataset_name'), 'label_configs.txt')
         
+        dataset_json_path = os.path.join(codebase_dir_name, 'datasets', self.conf.get('dataset_name'), 'dataset.json')
+
         ################### Importing the label configs dictionary #####################
 
         with open(label_config_path) as f:
             config_dict = json.load(f)
+        with open(dataset_json_path) as f:
+            dataset_config_dict = json.load(f)
 
         self.labels = config_dict["labels"]
-        self.original_dataset_labels = config_dict["original_dataset_labels"]
-        self.label_mapping = config_dict["label_mapping"]
+
+        self.imaging_modality = dataset_config_dict['modality']
 
         ###################################################################################
 
-        # #BRATS CONFIGURATION format #######
-        
-        # self.labels = {
-        #     "tumor": 1,
-        #     "background": 0,
-        # }
-        # self.original_dataset_labels = {
-        #     "peritumoral edema": 1,
-        #     "non-enhancing tumor": 2,
-        #     "enhancing tumor": 3,
-        #     "background": 0
-        # }
+        '''Setting the number of intensity chnanels (1 we will always be working with unimodal data)'''
 
-        # self.label_mapping = {
-        #     "tumor": ["peritumoral edema", "non-enhancing tumor", "enhancing tumor"],
-        #     "background": ["background"]
-        # }
-
-        # Number of input channels - 4 for BRATS and 1 for spleen
-        # self.number_intensity_ch = 1
-
-        # # Channels being extracted, if using a multi-channel/modality image.
-        # self.extract_channels = [3]
-
-
-
-        ################################### #Spleen_CT Configuration
-        # Binary/Single label
-
-        # self.labels = {     
-        #     "spleen": 1,
-        #     "background": 0,
-        # }
-
-        # self.original_dataset_labels = {
-        #     "spleen": 1,
-        #     "background": 0
-        # }
-        # ############ Label Mapping, key = output_class, val = list of input classes. ##############
-        # self.label_mapping = {
-        #     "spleen": ["spleen"],
-        #     "background": ["background"]
-        # }
-
-        # Number of input channels - 4 for BRATS and 1 for spleen
         self.number_intensity_ch = 1
 
-        
-        ########################### Extracting the parameters which are used for naming model files/checkpoints/finding checkpoint paths etc.
-        network = self.conf.get("network", "dynunet")
-        model_name = self.conf.pop("checkpoint", None) #If a specific checkpoint/save is being used, else use the default. 
 
 
-        #Adding the datetime for saving the model weights for train, or extracting the datetime set in the inference script:
-        if self.conf.get("mode") == "train":
-            self.datetime_now = datetime.datetime.now().strftime("%d%m%Y_%H%M%S")
-        else:
-            self.datetime_now = self.conf.pop("datetime")
+
+
+        ''' Extracting the information which is used for naming model files/checkpoints/finding checkpoint paths etc. ''' 
+
+
+        #Adding the datetime for saving the model weights for train, or extracting the datetime set in the inference_main script:
+
+        if self.conf.get("config_mode") == "train":
+            self.datetime_now = self.conf.get("datetime")
+        elif self.conf.get("config_mode") == "infer":
+            self.datetime_now = self.conf.get("datetime")
 
         ################ Extracting parameters which dicate how many epochs/interval size for saving checkpoints ####################
         
         self.max_epochs = self.conf.get("max_epochs", 50)
         self.save_interval = self.conf.get("save_interval", 10)
-        #dataset_name = self.conf.get("dataset_name", "Task09_Spleen")
         
-        
-        # Model Files
-        
-        #Setting the filename automatically based off the settings provided. If not using checkpoint: DEPRECATED_WE SAVE THIS INSTEAD TO A TXT FILE. The models 
-        #are kept separate through the use of the datetime!
+        # Models directory name which contains the specific datetime's checkpoints etc.:
 
-        
-        self.filename = 'models'
-        # len_keys = len(list(self.conf.keys()))
-        # for i, key in enumerate(self.conf.keys()):
-        #     if key == "mode":
-        #         continue
-        #     else:
-        #         self.filename += key
-        #         self.filename += f'_{self.conf[key]}'
-        #         if i != len_keys - 1:
-        #             self.filename += '_'
-        
-        ###### Name of the text file which we are going to save our non-default hyperparam (non-default params) info to ##################
+        #We may wish to extract a checkpoint of parameters.. 
 
-        hyperparams_filename = 'optional_hyperparam_settings.txt'
+        model_checkpoint = self.conf.get("checkpoint", None) #If a specific checkpoint/save is being used, else use the default
 
-        if self.conf.get("mode") == "train":
-            #create a duplicate dict without the mode name:
-            duplicate_conf = copy.deepcopy(self.conf)
-            del duplicate_conf["mode"]
+        self.model_checkpoints_folder = 'models'
+                        
+        # Model checkpoint for train/inference : 
+
+        if self.conf.get("config_mode") == 'train':
+            #In this case, the model checkpoint being used is not required.
+
+            # if model_checkpoint == None:
+            model_weights_path = os.path.join(self.model_dir, self.datetime_now, self.model_checkpoints_folder + '.pt')
+
+            #If re-starting, then do so from "best" TODO: possibly needs to be changed at a latter point when we do active learning^ so we can do from specific checkpoints instead possibly.
+
+            self.train_paths = [
+            os.path.join(self.model_dir, self.datetime_now, "models.pt"), # pretrained SHOULD NOT EXIST PRIOR TO TRAINING until we have an actively train/deploy model
+            model_weights_path  # For training, this is the path for the "best" checkpoint. 
+            ]
+
+        elif self.conf.get("config_mode") == 'infer':
             
-            os.makedirs(os.path.join(self.model_dir, self.datetime_now))
-            with open(os.path.join(self.model_dir, self.datetime_now, hyperparams_filename), 'w') as file:
-                file.write(json.dumps(duplicate_conf))
+            #If there is no model checkpoint provided, we are just using the checkpoint with the "best" validation value as computed directly according to the
+            #validation parametrisation configurations for validation/inner loop etc.
+
+            if model_checkpoint == None: #Just use the "best"
+                model_weights_path = os.path.join(self.model_dir, self.datetime_now, self.model_checkpoints_folder + '.pt')
+                model_checkpoint = 'best_val_score_epoch'
+            
+            #If there is a checkpoint provided, then we use that one. 
+            else:
+                model_weights_path = os.path.join(self.model_dir, self.datetime_now, self.model_checkpoints_folder, 'train_01', model_checkpoint + '.pt')
                 
-
-        if model_name == None:
-            model_weights_path = os.path.join(self.model_dir, self.datetime_now, self.filename + '.pt')
-            #In this case we use the default saved weights:
-        else:
-            model_weights_path = os.path.join(self.model_dir, self.datetime_now, self.filename, 'train_01', model_name + '.pt')
+            self.infer_path = [
+            model_weights_path  #For inference, this is the path to the checkpoint weights being used.
+            ]
             
-        
-        self.path = [
-            os.path.join(self.model_dir, f"pretrained_{self.name}_{network}.pt"),  # pretrained
-            model_weights_path   #f"{self.name}_{network}_num_epochs_{num_epochs}_dataset_{dataset_name}.pt"),  # published
-        ]
-
-        ##################### CHANGE IN PLACE TEMPORARILY FOR THE EXTERNAL VALIDATION METRIC SAVES #####################################################
-        self.external_validation_output_dir = os.path.join(up(up(up(up(up(os.path.abspath(model_dir)))))), 'external_validation', self.datetime_now, self.filename)
-        print(self.external_validation_output_dir)
-        print(model_dir)
-        output_dir_scores = os.path.join(self.external_validation_output_dir, 'validation_scores')
-        output_dir_images = os.path.join(self.external_validation_output_dir, 'validation_images_verif')
-
-        run_mode = self.conf.get("mode", "train")
-
-        if run_mode == "train":
-            if os.path.exists(self.external_validation_output_dir):
-                shutil.rmtree(self.external_validation_output_dir)
-
-            os.makedirs(output_dir_scores)
-            os.makedirs(output_dir_images)
-
-
-            fields = ['deepgrow_dice', 'autoseg_dice', 'deepedit_autoseg_dice']    
-            with open(os.path.join(output_dir_scores, 'validation.csv'),'a') as f:
-                writer = csv.writer(f)
-                writer.writerow(fields) 
-        
-
-        ######### Adding the settings file to the external validation folder also! ################
-        if self.conf.get("mode") == "train":
-            #create a duplicate dict without the mode name:
-            duplicate_conf = copy.deepcopy(self.conf)
-            del duplicate_conf["mode"]
-
-            with open(os.path.join(self.external_validation_output_dir, hyperparams_filename), 'w') as file:
-                file.write(json.dumps(duplicate_conf))
-
-        ################################################################################################################################################
-        #--conf use_pretrained_model false will disable this, or we can change it in the code.
-        # Download PreTrained Model
-        if strtobool(self.conf.get("use_pretrained_model", "false")):
-            url = f"{self.conf.get('pretrained_path', self.PRE_TRAINED_PATH)}"
-            url = f"{url}/radiology_deepedit_{network}_multilabel.pt"
-            download_file(url, self.path[0])
-        
-
-        self.target_spacing = json.loads(self.conf.get('target_spacing', '[1.0, 1.0, 1.0]'))  # target space for image
-        self.spatial_size = json.loads(self.conf.get('spatial_size', '[128, 128, 128]'))  # train input size
-        self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', '[64, 64, 32]'))
-        self.max_iterations = int(self.conf.get('max_iterations','1'))
-
-        
-        deepgrow_prob_train = self.conf.get("deepgrow_prob_train", "1/2")
-        try: 
-            num, den = deepgrow_prob_train.split('/')
-            self.deepgrow_prob_train = float(num)/float(den)
-        except: 
-            num = deepgrow_prob_train 
-            self.deepgrow_prob_train = float(num)
-
-        deepedit_prob_train = self.conf.get("deepedit_prob_train", "1/3")
-        try: 
-            num, den = deepedit_prob_train.split('/')
-            self.deepedit_prob_train = float(num)/float(den)
-        except: 
-            num = deepedit_prob_train 
-            self.deepedit_prob_train = float(num)
-
-        deepgrow_prob_val = self.conf.get("deepgrow_prob_val", "1")
-        try: 
-            num, den = deepgrow_prob_val.split('/')
-            self.deepgrow_prob_val = float(num)/float(den)
-        except: 
-            num = deepgrow_prob_val 
-            self.deepgrow_prob_val = float(num)
-
-        deepedit_prob_val =  self.conf.get("deepedit_prob_val", "1")
-        try: 
-            num, den = deepedit_prob_val.split('/')
-            self.deepedit_prob_val = float(num)/float(den)
-        except: 
-            num = deepedit_prob_val 
-            self.deepedit_prob_val = float(num)
     
 
-        # self.target_spacing = tuple([float(i) for i in target_spacing_str_list]) 
-        # self.spatial_size = tuple([int(i) for i in spatial_size_str_list])
-        # # Network
-        self.network = (
-            UNETR(
-                spatial_dims=3,
-                in_channels= 2 * len(self.labels) + self.number_intensity_ch, 
-                out_channels=len(self.labels),
-                img_size=self.spatial_size,
-                feature_size=64,
-                hidden_size=1536,
-                mlp_dim=3072,
-                num_heads=48,
-                pos_embed="conv",
-                norm_name="instance",
-                res_block=True,
-            )
-            if network == "unetr"
-            else DynUNet(
-                spatial_dims=3,
-                in_channels= 2 * len(self.labels) + self.number_intensity_ch, #TODO: change back # 2 * len(self.labels) + self.number_intensity_ch,
-                out_channels=len(self.labels),
-                kernel_size=[3, 3, 3, 3, 3, 3],
-                strides=[1, 2, 2, 2, 2, [2, 2, 1]],
-                upsample_kernel_size=[2, 2, 2, 2, [2, 2, 1]],
-                norm_name="instance",
-                deep_supervision=False,
-                res_block=True,
-            )
-        )
 
-        self.network_with_dropout = (
-            UNETR(
-                spatial_dims=3,
-                in_channels= 2 * len(self.labels) + self.number_intensity_ch, #TODO: change back # 2 * len(self.labels) + self.number_intensity_ch,
-                out_channels=len(self.labels),
-                img_size=self.spatial_size,
-                feature_size=64,
-                hidden_size=1536,
-                mlp_dim=3072,
-                num_heads=48,
-                pos_embed="conv",
-                norm_name="instance",
-                res_block=True,
-                dropout_rate=0.2,
-            )
-            if network == "unetr"
-            else DynUNet(
-                spatial_dims=3,
-                in_channels= 2 * len(self.labels) + self.number_intensity_ch, #TODO: change back #2 * len(self.labels) + self.number_intensity_ch,
-                out_channels=len(self.labels),
-                kernel_size=[3, 3, 3, 3, 3, 3],
-                strides=[1, 2, 2, 2, 2, [2, 2, 1]],
-                upsample_kernel_size=[2, 2, 2, 2, [2, 2, 1]],
-                norm_name="instance",
-                deep_supervision=False,
-                res_block=True,
-                dropout=0.2,
-            )
-        )
+        #### Download PreTrained Model #### 
 
-        # Others
+        #We will turn this off. 
+        if strtobool(self.conf.get("use_pretrained_model", "false")):
+            # url = f"{self.conf.get('pretrained_path', self.PRE_TRAINED_PATH)}"
+            # url = f"{url}/radiology_deepedit_{network}_multilabel.pt"
+            # download_file(url, self.path[0])
+            pass 
+        
+        ### Extracting specific variables that specifically pertain to the definitions of the train_setup configuration####
+         
+        if self.conf.get("config_mode") == "train":
+
+            self.target_spacing = json.loads(self.conf.get('target_spacing', '[1.0, 1.0, 1.0]'))  # target image spacing
+            self.spatial_size = json.loads(self.conf.get('spatial_size', '[128, 128, 128]'))  # train input size
+            self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', '[64, 64, 32]'))
+            self.max_iterations = int(self.conf.get('max_iterations','1'))
+
+            interactive_init_prob_train = self.conf.get("interactive_init_prob_train", "1/2")
+            try: 
+                num, den = interactive_init_prob_train.split('/')
+                self.interactive_init_prob_train = float(num)/float(den)
+            except: 
+                num = interactive_init_prob_train 
+                self.interactive_init_prob_train = float(num)
+
+            deepedit_prob_train = self.conf.get("deepedit_prob_train", "1/3")
+            try: 
+                num, den = deepedit_prob_train.split('/')
+                self.deepedit_prob_train = float(num)/float(den)
+            except: 
+                num = deepedit_prob_train 
+                self.deepedit_prob_train = float(num)
+
+            interactive_init_prob_val = self.conf.get("interactive_init_prob_val", "1")
+            try: 
+                num, den = interactive_init_prob_val.split('/')
+                self.interactive_init_prob_val = float(num)/float(den)
+            except: 
+                num = interactive_init_prob_val 
+                self.interactive_init_prob_val = float(num)
+
+            deepedit_prob_val =  self.conf.get("deepedit_prob_val", "1")
+            try: 
+                num, den = deepedit_prob_val.split('/')
+                self.deepedit_prob_val = float(num)/float(den)
+            except: 
+                num = deepedit_prob_val 
+                self.deepedit_prob_val = float(num)
+
+        ###### Extracting specific variables that specifically pertain to the definitions of the inference_setup.py configuration ####
+
+        elif self.conf.get("config_mode") == "infer":
+
+            self.target_spacing = json.loads(self.conf.get('target_spacing', '[1.0, 1.0, 1.0]'))  # target image spacing
+            self.spatial_size = json.loads(self.conf.get('spatial_size', '[128, 128, 128]'))  # train input size
+            self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', '[64, 64, 32]'))
+
+
+
+        ''' Extracting variables pertaining to the definitions of the A.L strategy setup '''
         self.epistemic_enabled = strtobool(conf.get("epistemic_enabled", "false"))
         self.epistemic_samples = int(conf.get("epistemic_samples", "5"))
         logger.info(f"EPISTEMIC Enabled: {self.epistemic_enabled}; Samples: {self.epistemic_samples}")
 
+
+        # Network
+        
+        self.networks_dict = run_get_network_configs(self.network_version_param, dict(vars(self)))
+        assert type(self.networks_dict) == dict, "The network configurations were not provided in a dict format"
+
+
+
+
+
+        #Dumping all of the configuration parameters into a file in the model folder for training:
+
+
+        if self.conf.get("config_mode") == "train":
+
+            ###### Name of the text file which we are going to save our train configs info to ##################
+
+            train_configs_filename = 'train_config_settings.txt'
+            
+            #create a duplicate dict:
+            duplicate_conf = copy.deepcopy(self.conf)
+            # del duplicate_conf["mode"]
+            
+            os.makedirs(os.path.join(self.model_dir, self.datetime_now))
+            with open(os.path.join(self.model_dir, self.datetime_now, train_configs_filename), 'w') as file:
+                file.write(json.dumps(duplicate_conf,indent=2)) 
+
+        
+            ##################### EXTERNAL VALIDATION SAVES (metrics + images optionally) #####################################################
+            self.external_validation_output_dir = os.path.join(os.path.abspath(codebase_dir_name), 'external_validation', self.datetime_now, self.model_checkpoints_folder)
+            
+            output_val_dir_scores = os.path.join(self.external_validation_output_dir, 'validation_scores')
+            # output_dir_images = os.path.join(self.external_validation_output_dir, 'validation_images_verif')
+
+            run_mode = self.conf.get("mode", "train")
+
+            if run_mode == "train":
+                if os.path.exists(self.external_validation_output_dir):
+                    shutil.rmtree(self.external_validation_output_dir)
+
+                os.makedirs(output_val_dir_scores)
+                # os.makedirs(output_dir_images)
+
+
+                fields = ['interactive_init_dice', 'autoseg_dice', 'deepedit_val_config_dice']    
+                with open(os.path.join(output_val_dir_scores, 'validation.csv'),'a') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(fields) 
+            
+            ################################################################################################################################################
+            #
+
+            #Dumping all of the training configuration parameters into the external validation folder also.
+
+            
+            #create a duplicate dict without the mode name:
+            duplicate_conf = copy.deepcopy(self.conf)
+            # del duplicate_conf["mode"]
+            
+            with open(os.path.join(self.external_validation_output_dir, train_configs_filename), 'w') as file:
+                file.write(json.dumps(duplicate_conf,indent=2)) 
+
+        elif self.conf.get("config_mode") == "infer":
+            
+            ###### Name of the text file which we are going to save our infer configs info to ##################
+
+            infer_configs_filename = 'infer_config_settings.txt'
+            infer_run_name = self.conf.get("infer_run_name")
+            infer_run_num = self.conf.get("infer_run_num")
+            
+            #create a duplicate dict:
+            duplicate_conf = copy.deepcopy(self.conf)
+            # del duplicate_conf["mode"]
+            
+            infer_configs_folder = os.path.join(codebase_dir_name, 'datasets', self.conf.get('dataset_name'), self.conf.get('infer_type') + f"_{self.conf.get('simulation_type')}", self.datetime_now, model_checkpoint, infer_run_name, 'run_' + infer_run_num + '_infer_configs')
+
+            if os.path.exists(infer_configs_folder):
+                shutil.rmtree(infer_configs_folder)
+            
+            os.makedirs(infer_configs_folder)
+
+            with open(os.path.join(infer_configs_folder, infer_configs_filename), 'w') as file:
+                file.write(json.dumps(duplicate_conf,indent=2)) 
+
+
     def infer(self) -> Union[InferTask, Dict[str, InferTask]]:
-        print('checkpoint path is:')
-        print(self.path)
-        return {
-            self.name: lib.infers.DeepEditPlusPlus(
-                path=self.path,
-                network=self.network,
-                #original_dataset_labels=self.original_dataset_labels,
-                #label_mapping=self.label_mapping,
-                labels=self.labels,
-                preload=strtobool(self.conf.get("preload", "false")),
-                spatial_size=self.spatial_size,
-                target_spacing=self.target_spacing,
-                divisible_padding_factor=self.divisible_padding_factor,
-                number_intensity_ch=self.number_intensity_ch,
-                config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
-            ),
-            f"{self.name}_autoseg": lib.infers.DeepEditPlusPlus(
-                path=self.path,
-                network=self.network,
-                #original_dataset_labels=self.original_dataset_labels,
-                #label_mapping=self.label_mapping,
-                labels=self.labels,
-                preload=strtobool(self.conf.get("preload", "false")),
-                spatial_size=self.spatial_size,
-                target_spacing=self.target_spacing,
-                divisible_padding_factor= self.divisible_padding_factor,
-                number_intensity_ch=self.number_intensity_ch,
-                type=InferType.SEGMENTATION,
-            ),
-            f"{self.name}_deepgrow": lib.infers.DeepEditPlusPlus(
-                path=self.path,
-                network=self.network,
-                #original_dataset_labels=self.original_dataset_labels,
-                #label_mapping=self.label_mapping,
-                labels=self.labels,
-                preload=strtobool(self.conf.get("preload","false")),
-                spatial_size=self.spatial_size,
-                target_spacing=self.target_spacing,
-                divisible_padding_factor=self.divisible_padding_factor, 
-                number_intensity_ch=self.number_intensity_ch,
-                type=InferType.DEEPGROW
-            )
-        }
+        
+        return run_infer_class_config(self.infer_config_version_param, dict(vars(self)))
 
     def trainer(self) -> Optional[TrainTask]:
-        #output_dir = os.path.join(self.model_dir, f"{self.name}_" + self.conf.get("network", "dynunet"))
-        output_dir = os.path.join(self.model_dir, self.datetime_now, self.filename) #f"{self.name}_" + self.conf.get("network","dynunet") + "_num_epochs_" + self.conf.get("max_epochs", "50") + "_dataset_" + self.conf.get("dataset_name", "default"))
-        load_path = self.path[0] if os.path.exists(self.path[0]) else self.path[1]
-
-        task: TrainTask = lib.trainers.DeepEditPlusPlus(
-            model_dir=output_dir,
-            network=self.network,
-            original_dataset_labels=self.original_dataset_labels,
-            label_mapping=self.label_mapping,
-            external_validation_dir=self.external_validation_output_dir, 
-            n_saved=int(self.max_epochs) // self.save_interval,
-            load_path=load_path,
-            publish_path=self.path[1],
-            spatial_size=self.spatial_size,
-            target_spacing=self.target_spacing,
-            divisible_padding_factor=self.divisible_padding_factor,
-            number_intensity_ch=self.number_intensity_ch,
-            config={"pretrained": strtobool(self.conf.get("use_pretrained_model", "true"))},
-            labels=self.labels,
-            debug_mode=False, #True,
-            max_iterations=self.max_iterations,
-            deepgrow_probability_train = self.deepgrow_prob_train,
-            deepedit_probability_train = self.deepedit_prob_train, 
-            deepgrow_probability_val = self.deepgrow_prob_val, 
-            deepedit_probability_val = self.deepedit_prob_val, 
-            find_unused_parameters=True,
-        )
-        return task
+        
+        return run_train_class_config(self.train_config_version_param, dict(vars(self)))
 
     def strategy(self) -> Union[None, Strategy, Dict[str, Strategy]]:
-        strategies: Dict[str, Strategy] = {}
-        if self.epistemic_enabled:
-            strategies[f"{self.name}_epistemic"] = Epistemic()
-        return strategies
+        
+        return run_strategy_method(self.strategy_method_version_param, dict(vars(self)))
 
     def scoring_method(self) -> Union[None, ScoringMethod, Dict[str, ScoringMethod]]:
-        methods: Dict[str, ScoringMethod] = {
-            "dice": Dice(),
-            "sum": Sum(),
-        }
-
-        if self.epistemic_enabled:
-            methods[f"{self.name}_epistemic"] = EpistemicScoring(
-                model=self.path,
-                network=self.network_with_dropout,
-                transforms=lib.infers.DeepEditPlusPlus(
-                    type=InferType.DEEPEDIT,
-                    path=self.path,
-                    network=self.network,
-                    labels=self.labels,
-                    preload=strtobool(self.conf.get("preload", "false")),
-                    spatial_size=self.spatial_size,
-                ).pre_transforms(),
-                num_samples=self.epistemic_samples,
-            )
-        return methods
+        
+        return run_scoring_method(self.scoring_method_version_param, self.networks_dict, InferDeepEditPlusPlus, dict(vars(self)))
+        
