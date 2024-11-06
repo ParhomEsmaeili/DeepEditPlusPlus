@@ -362,13 +362,13 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='10072024_182402') 
+    parser.add_argument("--datetime", default='20241102_121843') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 
     
     #Adding the inference setup script parametrisations for the components:
-    parser.add_argument("--pre_transforms_version_param", default='1')
+    parser.add_argument("--pre_transforms_version_param", default='2')
     parser.add_argument("--inverse_transforms_version_param", default='0')
     parser.add_argument("--post_transforms_version_param", default='0')
     parser.add_argument("--inferer_version_param", default='0')
@@ -434,6 +434,7 @@ def main():
                 "simulation_transf_config_parametrisation": args.simulation_transf_config_parametrisation,
                 "infer_click_parametrised_bool": args.infer_click_parametrised_bool,
                 "infer_click_parametrisations": args.infer_click_parametrisations,
+                "infer_click_parametrisations_string": inference_click_parametrisation_string,
                 #Introducing the vrsion params for the config files
                 "network_version_param": args.network_version_param,
                 "infer_config_version_param": args.infer_config_version_param,
@@ -466,6 +467,7 @@ def main():
                 "simulation_transf_config_parametrisation": args.simulation_transf_config_parametrisation,
                 "infer_click_parametrised_bool": args.infer_click_parametrised_bool,
                 "infer_click_parametrisations": args.infer_click_parametrisations,
+                "infer_click_parametrisations_string": inference_click_parametrisation_string,
                #Introducing the vrsion params for the config files
                 "network_version_param": args.network_version_param,
                 "infer_config_version_param": args.infer_config_version_param,
@@ -497,6 +499,7 @@ def main():
                 "simulation_transf_config_parametrisation": args.simulation_transf_config_parametrisation,
                 "infer_click_parametrised_bool": args.infer_click_parametrised_bool,
                 "infer_click_parametrisations": args.infer_click_parametrisations,
+                "infer_click_parametrisations_string": inference_click_parametrisation_string,
                 #Introducing the vrsion params for the config files
                 "network_version_param": args.network_version_param,
                 "infer_config_version_param": args.infer_config_version_param,
@@ -525,6 +528,7 @@ def main():
                 "simulation_transf_config_parametrisation": args.simulation_transf_config_parametrisation,
                 "infer_click_parametrised_bool": args.infer_click_parametrised_bool,
                 "infer_click_parametrisations": args.infer_click_parametrisations,
+                "infer_click_parametrisations_string": inference_click_parametrisation_string,
                 #Introducing the vrsion params for the config files
                 "network_version_param": args.network_version_param,
                 "infer_config_version_param": args.infer_config_version_param,

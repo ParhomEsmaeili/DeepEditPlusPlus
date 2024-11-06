@@ -158,7 +158,7 @@ class DeepEditPlusPlus(TaskConfig):
 
         ###################################################################################
 
-        '''Setting the number of intensity chnanels (1 we will always be working with unimodal data)'''
+        '''Setting the number of intensity channels (1 we will always be working with unimodal data)'''
 
         self.number_intensity_ch = 1
 
@@ -237,12 +237,30 @@ class DeepEditPlusPlus(TaskConfig):
          
         if self.conf.get("config_mode") == "train":
 
-            self.target_spacing = json.loads(self.conf.get('target_spacing', '[1.0, 1.0, 1.0]'))  # target image spacing
-            self.spatial_size = json.loads(self.conf.get('spatial_size', '[128, 128, 128]'))  # train input size
-            self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', '[64, 64, 32]'))
-            self.max_iterations = int(self.conf.get('max_iterations','1'))
+            try:
+                self.target_spacing = json.loads(self.conf.get('target_spacing'))  # target image spacing
+            except:
+                self.target_spacing = None
 
-            interactive_init_prob_train = self.conf.get("interactive_init_prob_train", "1/2")
+            try:
+                self.spatial_size = json.loads(self.conf.get('spatial_size'))  # train input size
+            except:
+                self.spatial_size = None
+
+            try:
+                self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor'))
+            except:
+                self.divisible_padding_factor = None 
+
+            try: 
+                self.max_iterations = int(self.conf.get('max_iterations'))
+            except:
+                self.max_iterations = None
+
+            ###
+
+            interactive_init_prob_train = self.conf.get("interactive_init_prob_train", None)
+
             try: 
                 num, den = interactive_init_prob_train.split('/')
                 self.interactive_init_prob_train = float(num)/float(den)
@@ -250,7 +268,8 @@ class DeepEditPlusPlus(TaskConfig):
                 num = interactive_init_prob_train 
                 self.interactive_init_prob_train = float(num)
 
-            deepedit_prob_train = self.conf.get("deepedit_prob_train", "1/3")
+            deepedit_prob_train = self.conf.get("deepedit_prob_train", None)
+
             try: 
                 num, den = deepedit_prob_train.split('/')
                 self.deepedit_prob_train = float(num)/float(den)
@@ -258,7 +277,7 @@ class DeepEditPlusPlus(TaskConfig):
                 num = deepedit_prob_train 
                 self.deepedit_prob_train = float(num)
 
-            interactive_init_prob_val = self.conf.get("interactive_init_prob_val", "1")
+            interactive_init_prob_val = self.conf.get("interactive_init_prob_val", None)
             try: 
                 num, den = interactive_init_prob_val.split('/')
                 self.interactive_init_prob_val = float(num)/float(den)
@@ -266,7 +285,7 @@ class DeepEditPlusPlus(TaskConfig):
                 num = interactive_init_prob_val 
                 self.interactive_init_prob_val = float(num)
 
-            deepedit_prob_val =  self.conf.get("deepedit_prob_val", "1")
+            deepedit_prob_val =  self.conf.get("deepedit_prob_val", None)
             try: 
                 num, den = deepedit_prob_val.split('/')
                 self.deepedit_prob_val = float(num)/float(den)
@@ -278,10 +297,20 @@ class DeepEditPlusPlus(TaskConfig):
 
         elif self.conf.get("config_mode") == "infer":
 
-            self.target_spacing = json.loads(self.conf.get('target_spacing', '[1.0, 1.0, 1.0]'))  # target image spacing
-            self.spatial_size = json.loads(self.conf.get('spatial_size', '[128, 128, 128]'))  # train input size
-            self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', '[64, 64, 32]'))
+            try:
+                self.target_spacing = json.loads(self.conf.get('target_spacing', None))  # target image spacing
+            except:
+                self.target_spacing = None 
 
+            try:
+                self.spatial_size = json.loads(self.conf.get('spatial_size', None))  # train input size
+            except:
+                self.spatial_size = None 
+            
+            try:
+                self.divisible_padding_factor = json.loads(self.conf.get('divisible_padding_factor', None))
+            except:
+                self.divisible_padding_factor = None 
 
 
         ''' Extracting variables pertaining to the definitions of the A.L strategy setup '''
@@ -358,12 +387,15 @@ class DeepEditPlusPlus(TaskConfig):
             infer_configs_filename = 'infer_config_settings.txt'
             infer_run_name = self.conf.get("infer_run_name")
             infer_run_num = self.conf.get("infer_run_num")
-            
+
+            infer_run_click_parametrisation_str  = self.conf.get("infer")
+            assert infer_run_click_parametrisation_str != None
+
             #create a duplicate dict:
             duplicate_conf = copy.deepcopy(self.conf)
             # del duplicate_conf["mode"]
             
-            infer_configs_folder = os.path.join(codebase_dir_name, 'datasets', self.conf.get('dataset_name'), self.conf.get('infer_type') + f"_{self.conf.get('simulation_type')}", self.datetime_now, model_checkpoint, infer_run_name, 'run_' + infer_run_num + '_infer_configs')
+            infer_configs_folder = os.path.join(codebase_dir_name, 'datasets', self.conf.get('dataset_name'), self.conf.get('infer_type') + f"_{self.conf.get('simulation_type')}", self.datetime_now, model_checkpoint, infer_run_name, infer_run_click_parametrisation_str, 'run_' + infer_run_num + '_infer_configs')
 
             if os.path.exists(infer_configs_folder):
                 shutil.rmtree(infer_configs_folder)
