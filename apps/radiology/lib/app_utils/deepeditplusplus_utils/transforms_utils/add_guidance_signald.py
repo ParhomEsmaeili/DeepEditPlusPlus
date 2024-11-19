@@ -79,7 +79,7 @@ class AddGuidanceSignalDeepEditd(MapTransform):
 
                 sshape = signal.shape
                 for point in guidance:  # TO DO: make the guidance a list only - it is currently a list of list
-                    if np.any(np.asarray(point) < 0):
+                    if np.any(np.asarray(point) < 0): #This eradicates any non-valid points generated in the initialisation/editing.
                         continue
 
                     if dimensions == 3:

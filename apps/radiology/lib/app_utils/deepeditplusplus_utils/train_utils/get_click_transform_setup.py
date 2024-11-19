@@ -71,7 +71,7 @@ def run_get_click_transf(self_dict, context, func_version_param):
     assert type(self_dict) == dict 
     assert type(func_version_param) == str 
     
-    supported_version_params = ['1']
+    supported_version_params = ['1', '2']
     
     assert func_version_param in supported_version_params, 'The version parameter was not supported for the get click transform list composition'
 
@@ -98,5 +98,30 @@ def run_get_click_transf(self_dict, context, func_version_param):
             AddSegmentationInputChannelsd(keys=["image"], previous_seg_name = "pred", number_intensity_ch = self_dict['number_intensity_ch'], label_names=None, previous_seg_flag=True, version_param='1'),
             ToTensord(keys=("image", "label")),
             SelectItemsd(keys=("image", "label", "label_names", "saved_meta")),
+        ]
+    
+    if func_version_param == '2':
+        #Marginal change from version 1, it now passes the click set and prediction through to the inner loop again. 
+        return [
+            #ToDeviced(keys=("image", "label"), device="cuda:0"),
+            Activationsd(keys="pred", softmax=True),
+            AsDiscreted(keys="pred", argmax=True),
+            #Temporary measure, not the final resolution for the issue with this code deleting the meta dictionary.
+            ExtractMetad(keys=("image"), version_param='1'),
+            ToNumpyd(keys=("image", "label", "pred")),
+            # Transforms for click simulation
+            FindDiscrepancyRegionsDeepEditd(keys="label", pred="pred", discrepancy="discrepancy", version_param='0'),
+            AddRandomGuidanceDeepEditd(
+                keys="NA",
+                guidance="guidance",
+                discrepancy="discrepancy",
+                probability="probability",
+                version_param='1'
+            ),
+            AddGuidanceSignalDeepEditd(keys="image", guidance="guidance", number_intensity_ch=self_dict['number_intensity_ch'], version_param='1'),
+            #
+            AddSegmentationInputChannelsd(keys=["image"], previous_seg_name = "pred", number_intensity_ch = self_dict['number_intensity_ch'], label_names=None, previous_seg_flag=True, version_param='1'),
+            ToTensord(keys=("image", "label","pred")),
+            SelectItemsd(keys=("image", "label", "label_names", "pred", "saved_meta", "guidance")),
         ]
     

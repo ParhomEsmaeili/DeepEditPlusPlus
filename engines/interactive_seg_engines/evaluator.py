@@ -12,15 +12,15 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence, Optional
 
 import torch
 from torch.utils.data import DataLoader
 
 from monai.config import KeysCollection
 from monai.data import MetaTensor
-from monai.engines.utils import IterationEvents, default_metric_cmp_fn, default_prepare_batch
-from monai.engines.workflow import Workflow
+# from monai.engines.utils import IterationEvents, default_metric_cmp_fn, default_prepare_batch
+# from monai.engines.workflow import Workflow
 from monai.inferers import Inferer, SimpleInferer
 from monai.networks.utils import eval_mode, train_mode
 from monai.transforms import Transform
@@ -37,7 +37,18 @@ else:
     Metric, _ = optional_import("ignite.metrics", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Metric")
     EventEnum, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "EventEnum")
 
+#Redirecting the workflow import so that we can try to view it in debugger:
+import sys
+import os 
+from os.path import dirname as up 
+
+#Appending the interactive engine's directory to the path:
+sys.path.append(up(os.path.abspath(__file__)))
+from engines.interactive_seg_engines.utils import IterationEvents, default_make_latent, default_metric_cmp_fn, default_prepare_batch
+from engines.interactive_seg_engines.workflow import Workflow
+
 __all__ = ["Evaluator", "SupervisedEvaluator", "EnsembleEvaluator"]
+
 
 
 class Evaluator(Workflow):
@@ -279,7 +290,13 @@ class SupervisedEvaluator(Evaluator):
         self.compile = compile
         self.inferer = SimpleInferer() if inferer is None else inferer
 
-    def _iteration(self, engine: SupervisedEvaluator, batchdata: dict[str, torch.Tensor]) -> dict:
+    def _iteration(self, 
+                engine: SupervisedEvaluator, 
+                batchdata: dict[str, torch.Tensor], 
+                func_version_param: str, 
+                click_info: Optional[dict[str, dict[str, dict[str, dict]]]] = None,
+                inner_pred_inputs: Optional[dict[str, dict[str, torch.Tensor]]] = None,
+                inner_loop_preds: Optional[dict[str, dict[str, torch.Tensor]]] = None) -> dict:
         """
         callback function for the Supervised Evaluation processing logic of 1 iteration in Ignite Engine.
         Return below items in a dictionary:
@@ -290,65 +307,90 @@ class SupervisedEvaluator(Evaluator):
         Args:
             engine: `SupervisedEvaluator` to execute operation for an iteration.
             batchdata: input data for this iteration, usually can be dictionary or tuple of Tensor data.
+            version_param: The version parameter for this function
+            click_info: An optional dictionary containing the click sets for each iteration (including the initialisation), and the parametrisations of the clicks.
+            It is optional because we probably don't need these masks for our validation metric.
+            
+            inner_pred_inpts: An optional dictionary containing the intermediate inputs required for predictions in the interactive segmentation simulation. 
+            inner_loop_preds: An optional dictionary containing the intermediate predictions made in eval mode.
+            
 
         Raises:
             ValueError: When ``batchdata`` is None.
-
+            ValueError: When ``func_version_param`` is not supported
         """
         if batchdata is None:
             raise ValueError("Must provide batch data for current iteration.")
-        batch = engine.prepare_batch(batchdata, engine.state.device, engine.non_blocking, **engine.to_kwargs)
-        if len(batch) == 2:
-            inputs, targets = batch
-            args: tuple = ()
-            kwargs: dict = {}
-        else:
-            inputs, targets, args, kwargs = batch
-        # FIXME: workaround for https://github.com/pytorch/pytorch/issues/117026
-        if self.compile:
-            inputs_meta, targets_meta, inputs_applied_operations, targets_applied_operations = None, None, None, None
-            if isinstance(inputs, MetaTensor):
-                warnings.warn(
-                    "Will convert to PyTorch Tensor if using compile, and casting back to MetaTensor after the forward pass."
-                )
-                inputs, inputs_meta, inputs_applied_operations = (
-                    inputs.as_tensor(),
-                    inputs.meta,
-                    inputs.applied_operations,
-                )
-            if isinstance(targets, MetaTensor):
-                targets, targets_meta, targets_applied_operations = (
-                    targets.as_tensor(),
-                    targets.meta,
-                    targets.applied_operations,
-                )
 
-        # put iteration outputs into engine.state
-        engine.state.output = {Keys.IMAGE: inputs, Keys.LABEL: targets}
-        # execute forward computation
-        with engine.mode(engine.network):
-            if engine.amp:
-                with torch.cuda.amp.autocast(**engine.amp_kwargs):
-                    engine.state.output[Keys.PRED] = engine.inferer(inputs, engine.network, *args, **kwargs)
+
+        ################################# Inserting the supported version parameters for this function #######################################
+        
+        supported_func_version_params = ['1']
+        
+        
+        if func_version_param not in supported_func_version_params:
+            raise ValueError("The selected version parameter for the evaluator's ._iteration() function is not supported")
+
+        #######################################################################################################################################
+        
+        if func_version_param == '1': 
+
+            #This is the default behaviour, it performs validation by just computing the standard metrics, no click based component whatsoever. 
+
+            #TODO: Any modification to using click/masked based components will have to ensure that metatensors pass through self.compile. 
+
+            batch = engine.prepare_batch(batchdata, engine.state.device, engine.non_blocking, **engine.to_kwargs)
+            if len(batch) == 2:
+                inputs, targets = batch
+                args: tuple = ()
+                kwargs: dict = {}
             else:
-                engine.state.output[Keys.PRED] = engine.inferer(inputs, engine.network, *args, **kwargs)
-        # copy back meta info
-        if self.compile:
-            if inputs_meta is not None:
-                engine.state.output[Keys.IMAGE] = MetaTensor(
-                    inputs, meta=inputs_meta, applied_operations=inputs_applied_operations
-                )
-                engine.state.output[Keys.PRED] = MetaTensor(
-                    engine.state.output[Keys.PRED], meta=inputs_meta, applied_operations=inputs_applied_operations
-                )
-            if targets_meta is not None:
-                engine.state.output[Keys.LABEL] = MetaTensor(
-                    targets, meta=targets_meta, applied_operations=targets_applied_operations
-                )
-        engine.fire_event(IterationEvents.FORWARD_COMPLETED)
-        engine.fire_event(IterationEvents.MODEL_COMPLETED)
+                inputs, targets, args, kwargs = batch
+            # FIXME: workaround for https://github.com/pytorch/pytorch/issues/117026
+            if self.compile:
+                inputs_meta, targets_meta, inputs_applied_operations, targets_applied_operations = None, None, None, None
+                if isinstance(inputs, MetaTensor):
+                    warnings.warn(
+                        "Will convert to PyTorch Tensor if using compile, and casting back to MetaTensor after the forward pass."
+                    )
+                    inputs, inputs_meta, inputs_applied_operations = (
+                        inputs.as_tensor(),
+                        inputs.meta,
+                        inputs.applied_operations,
+                    )
+                if isinstance(targets, MetaTensor):
+                    targets, targets_meta, targets_applied_operations = (
+                        targets.as_tensor(),
+                        targets.meta,
+                        targets.applied_operations,
+                    )
 
-        return engine.state.output
+            # put iteration outputs into engine.state
+            engine.state.output = {Keys.IMAGE: inputs, Keys.LABEL: targets}
+            # execute forward computation
+            with engine.mode(engine.network):
+                if engine.amp:
+                    with torch.cuda.amp.autocast(**engine.amp_kwargs):
+                        engine.state.output[Keys.PRED] = engine.inferer(inputs, engine.network, *args, **kwargs)
+                else:
+                    engine.state.output[Keys.PRED] = engine.inferer(inputs, engine.network, *args, **kwargs)
+            # copy back meta info
+            if self.compile:
+                if inputs_meta is not None:
+                    engine.state.output[Keys.IMAGE] = MetaTensor(
+                        inputs, meta=inputs_meta, applied_operations=inputs_applied_operations
+                    )
+                    engine.state.output[Keys.PRED] = MetaTensor(
+                        engine.state.output[Keys.PRED], meta=inputs_meta, applied_operations=inputs_applied_operations
+                    )
+                if targets_meta is not None:
+                    engine.state.output[Keys.LABEL] = MetaTensor(
+                        targets, meta=targets_meta, applied_operations=targets_applied_operations
+                    )
+            engine.fire_event(IterationEvents.FORWARD_COMPLETED)
+            engine.fire_event(IterationEvents.MODEL_COMPLETED)
+
+            return engine.state.output
 
 
 class EnsembleEvaluator(Evaluator):

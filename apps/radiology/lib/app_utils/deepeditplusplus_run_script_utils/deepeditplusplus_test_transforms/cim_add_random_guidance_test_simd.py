@@ -144,12 +144,12 @@ class AddRandomTestGuidanceCIMDeepEditd(Randomizable, MapTransform):
                         for key_label in d["label_names"].keys():
                             if key_label not in keep_guidance:
                                 self.guidance[key_label] = []
-                        logger.info(f"Number of simulated clicks: {counter}")
+                        # logger.info(f"Number of simulated clicks: {counter}")
                         break
 
                 # Breaking once all labels are covered
                 if len(keep_guidance) == len(d["label_names"].keys()):
-                    logger.info(f"Number of simulated clicks: {counter}")
+                    # logger.info(f"Number of simulated clicks: {counter}")
                     break
         #Appending the points generated that did not already exist in the existing set of points.
 
@@ -159,4 +159,5 @@ class AddRandomTestGuidanceCIMDeepEditd(Randomizable, MapTransform):
                     guidance[key_label].append(guidance_point)
 
         d[self.guidance_key] = guidance #self.guidance  # Update the guidance
+        logger.info(f"Final number of simulation clicks: {sum([len(sublist) for sublist in list(guidance.values())])}")
         return d

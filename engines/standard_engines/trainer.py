@@ -20,7 +20,8 @@ from torch.utils.data import DataLoader
 
 from monai.data import MetaTensor
 from monai.engines.utils import IterationEvents, default_make_latent, default_metric_cmp_fn, default_prepare_batch
-from monai.engines.workflow import Workflow
+# from monai.engines.workflow import Workflow
+
 from monai.inferers import Inferer, SimpleInferer
 from monai.transforms import Transform
 from monai.utils import AdversarialIterationEvents, AdversarialKeys, GanKeys, IgniteInfo, min_version, optional_import
@@ -35,6 +36,14 @@ else:
     Engine, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Engine")
     Metric, _ = optional_import("ignite.metrics", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Metric")
     EventEnum, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "EventEnum")
+
+#Redirecting the workflow import so that we can try to view it in debugger:
+import sys
+import os 
+from os.path import dirname as up 
+#Appending the standard engines directory to the path:
+sys.path.append(up(os.path.abspath(__file__)))
+from workflow import Workflow
 
 __all__ = ["Trainer", "SupervisedTrainer", "GanTrainer", "AdversarialTrainer"]
 

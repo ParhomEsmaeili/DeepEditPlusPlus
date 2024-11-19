@@ -24,7 +24,8 @@ from monai.engines.utils import IterationEvents, default_metric_cmp_fn, default_
 from monai.transforms import Decollated
 from monai.utils import IgniteInfo, ensure_tuple, is_scalar, min_version, optional_import
 
-from .utils import engine_apply_transform
+# from .utils import engine_apply_transform
+from utils import engine_apply_transform 
 
 State, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "State")
 Events, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Events")

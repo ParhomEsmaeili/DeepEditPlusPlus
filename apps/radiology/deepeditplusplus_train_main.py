@@ -324,13 +324,15 @@ def main():
     parser.add_argument("--model", default="deepeditplusplus")
     parser.add_argument("--config_mode", default="train")# choices=("train"))
     parser.add_argument("--max_epoch", default="300")
+    parser.add_argument("--train_batch_size", default='1')
+    parser.add_argument("--val_batch_size", default='1')
     parser.add_argument("--save_interval", default='5')
     parser.add_argument("--target_spacing", default='[1,1,1]')
     parser.add_argument("--spatial_size", default='[128,128,128]')
     parser.add_argument("--divisible_padding_factor", default='[64,64,32]')
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation, everything else is the train split, second value denotes how many total folds")
     parser.add_argument("--train_folds", nargs='+', default=['1','2','3','4'])
-    parser.add_argument("--max_iterations", default='10')
+    parser.add_argument("--max_iterations", default='1')
     parser.add_argument("--interactive_init_prob_train", default='1/2')
     parser.add_argument("--deepedit_prob_train", default="1/3")
     parser.add_argument("--interactive_init_prob_val", default="0")
@@ -340,24 +342,25 @@ def main():
     #Introducing the version params for setting up training_setup.py, the config_setup.py version param, and the network selected version_param.
     
     parser.add_argument("--optimizer_version_param", default='0')
-    parser.add_argument("--loss_func_version_param", default='0')
-    parser.add_argument("--get_click_version_param", default='1')
-    parser.add_argument("--train_pre_transforms_version_param", default='2')
+    parser.add_argument("--loss_func_version_param", default='3')
+    parser.add_argument("--get_click_version_param", default='2')
+    parser.add_argument("--train_pre_transforms_version_param", default='3')
     parser.add_argument("--train_post_transforms_version_param", default='1')
-    parser.add_argument("--val_pre_transforms_version_param", default='2')
+    parser.add_argument("--val_pre_transforms_version_param", default='3')
     parser.add_argument("--train_inferer_version_param", default='0')
     parser.add_argument("--val_inferer_version_param", default='0')
-    parser.add_argument("--train_iter_update_version_param", default='2')
-    parser.add_argument("--val_iter_update_version_param", default='2')
+    parser.add_argument("--train_iter_update_version_param", default='3')
+    parser.add_argument("--val_iter_update_version_param", default='3')
     parser.add_argument("--train_key_metric_version_param", default='1')
     parser.add_argument("--val_key_metric_version_param", default='1')
     parser.add_argument("--train_handler_version_param", default='0')
-    parser.add_argument("--engine_version_param", default='0')
+    parser.add_argument("--engine_version_param", default='1')
 
     parser.add_argument("--train_config_version_param", default='1')
     parser.add_argument("--network_version_param", default='0') 
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
+
 
         
 
@@ -392,6 +395,8 @@ def main():
 
         "dataset_name": args.studies,
         "max_epochs": args.max_epoch,
+        "train_batch_size": args.train_batch_size,
+        "val_batch_size": args.val_batch_size,
         "save_interval": args.save_interval,
         "config_mode": args.config_mode,
         "target_spacing":args.target_spacing,
@@ -467,8 +472,8 @@ def main():
             "max_epochs": int(args.max_epoch),
             "dataset": "SmartCacheDataset", #"Dataset",  # PersistentDataset, CacheDataset
             "early_stop_patience":-1,
-            "train_batch_size": 1,
-            "val_batch_size": 1,
+            "train_batch_size": int(args.train_batch_size),
+            "val_batch_size": int(args.val_batch_size),
             "multi_gpu": False,
             "gpus":"all",
             "dataloader":"ThreadDataLoader",

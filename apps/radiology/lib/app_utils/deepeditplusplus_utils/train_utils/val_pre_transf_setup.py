@@ -70,7 +70,7 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
     assert type(self_dict) == dict 
     assert type(func_version_param) == str 
 
-    supported_version_params = ['1', '2']
+    supported_version_params = ['1', '2', '3']
     
     assert func_version_param in supported_version_params, 'The version parameter was not supported for the get val pre-transform list composition'
 
@@ -115,4 +115,24 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
             
             ToTensord(keys=("image", "label")),
             SelectItemsd(keys=("image", "label", "label_names")), #"guidance", "label_names")),
+        ]
+    elif func_version_param == '3':
+        #Modified version of version_2 but with the added modification that the click set is propagated to the inner loop again. 
+        return [
+            LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys=("image", "label")),
+            # MappingLabelsInDatasetd(keys="label", original_label_names=self.original_dataset_labels, label_names = self._labels, label_mapping=self.label_mapping),
+            NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'),
+            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            ImageNormalisationd(keys="image", modality = self_dict['modality'], version_param='2'),
+            DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor']),
+            # CenterSpatialCropd(keys=("image", "label"), roi_size=self_dict['spatial_size']),
+            # Transforms for interactive init click simulation 
+            FindAllValidSlicesMissingLabelsd(keys="label", sids="sids", version_param='0'),
+            AddInitialSeedPointMissingLabelsd(keys="label", guidance="guidance", sids="sids", version_param='0'),
+            AddGuidanceSignalDeepEditd(keys="image", guidance="guidance", number_intensity_ch=self_dict['number_intensity_ch'], version_param='1'),
+            AddSegmentationInputChannelsd(keys="image", previous_seg_name=None, number_intensity_ch = self_dict['number_intensity_ch'], label_names=None, previous_seg_flag= False, version_param='1'),
+            
+            ToTensord(keys=("image", "label")),
+            SelectItemsd(keys=("image", "label", "guidance", "label_names")),
         ]

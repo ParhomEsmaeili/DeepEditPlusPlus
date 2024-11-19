@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Iterable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
 import torch.distributed as dist
@@ -24,7 +24,8 @@ from monai.engines.utils import IterationEvents, default_metric_cmp_fn, default_
 from monai.transforms import Decollated
 from monai.utils import IgniteInfo, ensure_tuple, is_scalar, min_version, optional_import
 
-from .utils import engine_apply_transform
+# from .utils import engine_apply_transform
+from engines.interactive_seg_engines.utils import engine_apply_transform 
 
 State, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "State")
 Events, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Events")
@@ -281,7 +282,7 @@ class Workflow(Engine):
             return
         super().run(data=self.data_loader, max_epochs=self.state.max_epochs)
 
-    def _iteration(self, engine: Any, batchdata: dict[str, torch.Tensor]) -> dict:
+    def _iteration(self, engine: Any, batchdata: dict[str, torch.Tensor]) -> dict: #, func_version_param: str, click_sets: Union[dict, None]) -> dict:
         """
         Abstract callback function for the processing logic of 1 iteration in Ignite Engine.
         Need subclass to implement different logics, like SupervisedTrainer/Evaluator, GANTrainer, etc.

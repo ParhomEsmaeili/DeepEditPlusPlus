@@ -88,15 +88,15 @@ logger = logging.getLogger(__name__)
 
 #Importing the engines in a parametrised manner:
 
-from engines.standard_engines import SupervisedTrainer as DefaultSupervisedTrainer
-from engines.standard_engines import SupervisedEvaluator as DefaultSupervisedEvaluator 
+from engines.standard_engines.trainer import SupervisedTrainer as DefaultSupervisedTrainer
+from engines.standard_engines.evaluator import SupervisedEvaluator as DefaultSupervisedEvaluator 
 
 # from monai.engines import SupervisedTrainer as DefaultSupervisedTrainer
 # from monai.engines import SupervisedEvaluator as DefaultSupervisedEvaluator
 
 #Importing the interactive version..
-from engines.interactive_seg_engines import SupervisedTrainer as InteractiveSupervisedTrainer
-from engines.interactive_seg_engines import SupervisedEvaluator as InteractiveSupervisedEvaluator 
+from engines.interactive_seg_engines.trainer import SupervisedTrainer as InteractiveSupervisedTrainer
+from engines.interactive_seg_engines.evaluator import SupervisedEvaluator as InteractiveSupervisedEvaluator 
 
 
 class Context:

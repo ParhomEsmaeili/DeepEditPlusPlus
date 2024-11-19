@@ -128,19 +128,19 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.engine_version_param = self.version_params["engine_version_param"]
 
         self.supported_optimizer  = ['0']
-        self.supported_loss_func = ['0']
-        self.supported_get_click_transform = ['1']
-        self.supported_train_pre_transf = ['1','2']
+        self.supported_loss_func = ['0', '1', '2', '3', '4']
+        self.supported_get_click_transform = ['1', '2']
+        self.supported_train_pre_transf = ['1','2', '3']
         self.supported_train_post_transf = ['1']
-        self.supported_val_pre_transf = ['1','2']
+        self.supported_val_pre_transf = ['1','2', '3']
         self.supported_train_inferer = ['0']
         self.supported_val_inferer = ['0']
-        self.supported_train_iter = ['1','2']
-        self.supported_val_iter = ['1','2']
+        self.supported_train_iter = ['1','2', '3', '4']
+        self.supported_val_iter = ['1','2', '3', '4']
         self.supported_train_metric = ['1']
         self.supported_val_metric = ['1']
         self.supported_train_handlers = ['0'] 
-        self.supported_engine_versions = ['0']
+        self.supported_engine_versions = ['0', '1']
 
         assert self.optimizer_version_param in self.supported_optimizer  
         assert self.loss_func_version_param in self.supported_loss_func 
@@ -187,6 +187,7 @@ class DeepEditPlusPlus(BasicTrainTask):
     def train_post_transforms(self, context: Context):
         
         if self.train_post_transforms_version_param == '1':
+            #This is only configured for single output map formulations, not for deep supervision.
             return [
                 Activationsd(keys="pred", softmax=True),
                 AsDiscreted(
@@ -224,7 +225,33 @@ class DeepEditPlusPlus(BasicTrainTask):
                 #label_names=self._labels,
             )
         
-        if self.train_iter_update_version_param == '2':
+        elif self.train_iter_update_version_param == '2':
+
+            return Interaction(
+                self_dict=dict(vars(self)),
+                external_validation_output_dir=self.external_validation_dir,
+                num_intensity_channel=self.number_intensity_ch,  
+                transforms=self.get_click_transforms(context),
+                click_probability_key="probability",
+                train=True,
+                version_param=self.train_iter_update_version_param 
+                #label_names=self._labels,
+            )
+        
+        elif self.train_iter_update_version_param == '3':
+
+            return Interaction(
+                self_dict=dict(vars(self)),
+                external_validation_output_dir=self.external_validation_dir,
+                num_intensity_channel=self.number_intensity_ch,  
+                transforms=self.get_click_transforms(context),
+                click_probability_key="probability",
+                train=True,
+                version_param=self.train_iter_update_version_param 
+                #label_names=self._labels,
+            )
+        
+        elif self.train_iter_update_version_param == '4':
 
             return Interaction(
                 self_dict=dict(vars(self)),
@@ -264,11 +291,38 @@ class DeepEditPlusPlus(BasicTrainTask):
                 version_param=self.val_iter_update_version_param 
                 #label_names=self._labels,
             )
+        
+        elif self.val_iter_update_version_param == '3':
+        
+            return Interaction(
+                self_dict=dict(vars(self)),
+                external_validation_output_dir=self.external_validation_dir,
+                num_intensity_channel=self.number_intensity_ch, 
+                transforms=self.get_click_transforms(context),
+                click_probability_key="probability",
+                train=False,
+                version_param=self.val_iter_update_version_param 
+                #label_names=self._labels,
+            )
+        
+        elif self.val_iter_update_version_param == '4':
+        
+            return Interaction(
+                self_dict=dict(vars(self)),
+                external_validation_output_dir=self.external_validation_dir,
+                num_intensity_channel=self.number_intensity_ch, 
+                transforms=self.get_click_transforms(context),
+                click_probability_key="probability",
+                train=False,
+                version_param=self.val_iter_update_version_param 
+                #label_names=self._labels,
+            )
 
 
     def train_key_metric(self, context: Context):
 
         if self.train_key_metric_version_param == '1':
+            #This is only configured for single output map formulations, not for deep supervision.
             all_metrics = dict()
             all_metrics["train_dice"] = MeanDice(output_transform=from_engine(["pred", "label"]), include_background=False)
             for key_label in self._labels:
@@ -281,7 +335,7 @@ class DeepEditPlusPlus(BasicTrainTask):
     def val_key_metric(self, context: Context):
         
         if self.val_key_metric_version_param == '1':
-
+            #This is only configured for single output map formulations, not for deep supervision.
             all_metrics = dict()
             all_metrics["val_mean_dice"] = MeanDice(
                 output_transform=from_engine(["pred", "label"]), include_background=False
@@ -296,7 +350,7 @@ class DeepEditPlusPlus(BasicTrainTask):
     def train_handlers(self, context: Context):
         
         if self.train_handler_version_param == '0':
-            
+            #This is only configured for single output map formulations, not for deep supervision.
             handlers = super().train_handlers(context)
             if self.debug_mode and context.local_rank == 0:
                 handlers.append(TensorBoardImageHandler(log_dir=context.events_dir))

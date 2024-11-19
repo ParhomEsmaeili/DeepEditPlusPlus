@@ -1,13 +1,17 @@
 '''
 Version of the inner loop which is deepedit++ like but performs variable number of editing iterations prior to the final iteration being inputted to the default engine.
 
-INTENDED FOR THE DEFAULT VERSION. 
+INTENDED FOR THE DEFAULT engine VERSION. 
 
 Does not extract or save any information about the click sets for the click based loss functions!
 
-Also changed the click probability to = 1 (no dropout). Will require some approach for penalising a lack of sufficiently quick convergence potentially!
+Also changed the click probability to = 1 (no dropout). 
 
 For validation, the full set of editing iterations is implemented.
+
+
+#This is only configured for single output map formulations, not for deep supervision.
+Batchsize = 1 is reflected in the validation score computations
 '''
 
 from __future__ import annotations
@@ -31,13 +35,13 @@ import sys
 engines_dir = os.path.join(up(up(up(up(up(up(up(os.path.abspath(__file__)))))))), 'engines')
 sys.path.append(engines_dir)
 
-from engines.standard_engines import SupervisedTrainer as DefaultSupervisedTrainer
-from engines.standard_engines import SupervisedEvaluator as DefaultSupervisedEvaluator 
+from engines.standard_engines.trainer import SupervisedTrainer as DefaultSupervisedTrainer
+from engines.standard_engines.evaluator import SupervisedEvaluator as DefaultSupervisedEvaluator 
 
 
 #Importing the interactive version..
-from engines.interactive_seg_engines import SupervisedTrainer as InteractiveSupervisedTrainer
-from engines.interactive_seg_engines import SupervisedEvaluator as InteractiveSupervisedEvaluator 
+from engines.interactive_seg_engines.trainer import SupervisedTrainer as InteractiveSupervisedTrainer
+from engines.interactive_seg_engines.evaluator import SupervisedEvaluator as InteractiveSupervisedEvaluator 
 
 from monai.engines.utils import IterationEvents
 from monai.transforms import Compose
@@ -57,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 
 def run(self_dict, 
-        engine: DefaultSupervisedTrainer | DefaultSupervisedEvaluator | InteractiveSupervisedTrainer | InteractiveSupervisedEvaluator,
+        engine: DefaultSupervisedTrainer | DefaultSupervisedEvaluator,
         batchdata: dict[str, torch.Tensor]) -> dict:
 
     if self_dict['train']:

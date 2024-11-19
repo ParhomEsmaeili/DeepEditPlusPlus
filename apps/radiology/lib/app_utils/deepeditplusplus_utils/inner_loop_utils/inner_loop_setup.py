@@ -20,6 +20,8 @@ engines_dir = os.path.join(up(up(up(up(up(up(up(os.path.abspath(__file__))))))))
 sys.path.append(engines_dir)
 from inner_loop_utils.inner_loop_version_1 import run as inner_loop_1_run
 from inner_loop_utils.inner_loop_version_2 import run as inner_loop_2_run
+from inner_loop_utils.inner_loop_version_3 import run as inner_loop_3_run
+from inner_loop_utils.inner_loop_version_4 import run as inner_loop_4_run
 
 ########################
 
@@ -30,15 +32,15 @@ import torch
 import logging 
 from monai.data import decollate_batch, list_data_collate
 # from monai.engines import SupervisedEvaluator, SupervisedTrainer
-from engines.standard_engines import SupervisedTrainer as DefaultSupervisedTrainer
-from engines.standard_engines import SupervisedEvaluator as DefaultSupervisedEvaluator 
+from engines.standard_engines.trainer import SupervisedTrainer as DefaultSupervisedTrainer
+from engines.standard_engines.evaluator import SupervisedEvaluator as DefaultSupervisedEvaluator 
 
 # from monai.engines import SupervisedTrainer as DefaultSupervisedTrainer
 # from monai.engines import SupervisedEvaluator as DefaultSupervisedEvaluator
 
 #Importing the interactive version..
-from engines.interactive_seg_engines import SupervisedTrainer as InteractiveSupervisedTrainer
-from engines.interactive_seg_engines import SupervisedEvaluator as InteractiveSupervisedEvaluator 
+from engines.interactive_seg_engines.trainer import SupervisedTrainer as InteractiveSupervisedTrainer
+from engines.interactive_seg_engines.evaluator import SupervisedEvaluator as InteractiveSupervisedEvaluator 
 
 from monai.engines.utils import IterationEvents
 from monai.transforms import Compose
@@ -51,8 +53,8 @@ Version param denotes the version of this interaction/inner loop functionality t
 Version 0: DeepEdit original implementation. (not yet re-implemented)
 Version 1: DeepEdit++ v1.1 version.
 Version 2: Approximate loop unrolling (randomly selected the max-iter value for each training iteration from the max-iter param as an upper limit.)
-
-
+Version 3: Approximate loop unrolling with click sets generated and passed into the engine.iteration function for performing multi-headed click-based losses.
+Version 4: Full loop unrolling with click sets generated and passed into the engine.iteration function for performing multi-headed click-based losses.
 '''
 
 class Interaction:
@@ -125,12 +127,12 @@ class Interaction:
             self.interactive_init_probability = self_dict['component_parametrisation_dict']['interactive_init_probability_val']
             self.deepedit_probability = self_dict['component_parametrisation_dict']['deepedit_probability_val']
 
-        self.supported_inner_loop_versions = ['1','2']
+        self.supported_inner_loop_versions = ['1','2', '3', '4']
 
         # self.self_dict = dict(vars(self)) #Creating a dictionary from the self attributes, this will be fed forward into the 
 
         assert self.version_param in self.supported_inner_loop_versions
-        #TODO: 
+    
 
     def __call__(self, 
                 engine: DefaultSupervisedTrainer | DefaultSupervisedEvaluator | InteractiveSupervisedTrainer | InteractiveSupervisedEvaluator, 
@@ -145,7 +147,14 @@ class Interaction:
         elif self.version_param == '2':
 
             return inner_loop_2_run(dict(vars(self)), engine, batchdata)
-        
+
+        elif self.version_param == '3':
+
+            return inner_loop_3_run(dict(vars(self)), engine, batchdata)
+
+        elif self.version_param == '4':
+
+            return inner_loop_4_run(dict(vars(self)), engine, batchdata)
 
             
             

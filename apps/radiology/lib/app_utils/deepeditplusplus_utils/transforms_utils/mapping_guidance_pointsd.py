@@ -28,6 +28,7 @@ Mapping guidance points from where they're placed in inference (in RAS assumed) 
 
 Version 1: The DeepEdit++ v1.1 implementation. for instances where the images are being padded during pre-processing (and the original points are placed on the non-padded images..).
 
+Assumed to be symmetric padding!
 '''
 
 class MappingGuidancePointsd(MapTransform):
@@ -55,7 +56,7 @@ class MappingGuidancePointsd(MapTransform):
     def __apply__(self, guidance_point, current_size):
         
         if self.version_param == '1':
-            pre_padding = [(current_size[i] - self.original_spatial_size[i]) // 2 for i in range(len(current_size))]
+            pre_padding = [max(int((current_size[i] - self.original_spatial_size[i]) // 2), 0) for i in range(len(current_size))]
             return [j + pre_padding[i] for i,j in enumerate(guidance_point)] 
 
 

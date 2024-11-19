@@ -180,14 +180,15 @@ class AddRandomGuidanceDeepEditd(Randomizable, MapTransform):
                             for key_label in d["label_names"].keys():
                                 if key_label not in keep_guidance:
                                     self.guidance[key_label] = []
-                            logger.info(f"Number of simulated clicks: {counter}")
+                            # logger.info(f"Number of simulated clicks: {counter}")
                             #logger.info(f"Final Guidance points generated: {self.guidance}")
                             break
 
                     # Breaking once all labels are covered
                     if len(keep_guidance) == len(d["label_names"].keys()):
-                        logger.info(f"Number of simulated clicks: {counter}")
+                        # logger.info(f"Number of simulated clicks: {counter}")
                         #logger.info(f"Final Guidance points generated: {self.guidance}")
                         break
                 d[self.guidance_key] = self.guidance  # Update the guidance
+                logger.info(f"Final number of simulation clicks: {sum([len(sublist) for sublist in list(self.guidance.values())])}")
             return d

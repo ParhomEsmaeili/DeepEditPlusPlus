@@ -388,7 +388,7 @@ class DeepEditPlusPlus(TaskConfig):
             infer_run_name = self.conf.get("infer_run_name")
             infer_run_num = self.conf.get("infer_run_num")
 
-            infer_run_click_parametrisation_str  = self.conf.get("infer")
+            infer_run_click_parametrisation_str  = self.conf.get("infer_click_parametrisations_string")
             assert infer_run_click_parametrisation_str != None
 
             #create a duplicate dict:

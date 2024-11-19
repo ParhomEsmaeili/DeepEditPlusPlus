@@ -1,8 +1,27 @@
 '''
-DeepEdit++ v1.1 version of the inner loop code.
+Version of the inner loop which is deepedit++ like but performs variable number of editing iterations prior to the final iteration (and the info from intermediate iters) are
+passed into the interactive engine.
 
-#This is only configured for single output map formulations, not for deep supervision.
-Batchsize = 1 is reflected in the validation score computations.
+The training engine is still intended to perform a forward pass on the final iteration's generated inputs.
+
+
+INTENDED FOR THE interactive training engine
+
+For evaluation, we just use the standard engine on the final output (for the default validation output)
+
+
+Retains the click sets for click-based loss computations ONLY. Click probability = 1, enforcement of quicker convergence will come from the loss function. 
+Does not extract any of the click parametrisation info from the actual compose transforms (we use a dummy.)
+
+Currently the version parameter used for the training engine is not one which uses the click information for the loss yet.
+
+
+For validation, the full set of editing iterations are always implemented.
+
+#This inner loop is only configured for single output map formulations, not for deep supervision.
+Batchsize > 1 is also supported now, (which is reflected in the fixed hacky validation score computations corrections).
+
+
 '''
 
 from __future__ import annotations
@@ -23,16 +42,20 @@ from os.path import dirname as up
 import os 
 import sys 
 
+file_dir = os.path.join(up(os.path.abspath(__file__)))
 engines_dir = os.path.join(up(up(up(up(up(up(up(os.path.abspath(__file__)))))))), 'engines')
 sys.path.append(engines_dir)
 
-from engines.standard_engines.trainer import SupervisedTrainer as DefaultSupervisedTrainer
-from engines.standard_engines.evaluator import SupervisedEvaluator as DefaultSupervisedEvaluator 
+# from engines.standard_engines import SupervisedTrainer as DefaultSupervisedTrainer
+# from engines.standard_engines import SupervisedEvaluator as DefaultSupervisedEvaluator 
 
 
 #Importing the interactive version..
-#from engines.interactive_seg_engines.trainer import SupervisedTrainer as InteractiveSupervisedTrainer
-#from engines.interactive_seg_engines.evaluator import SupervisedEvaluator as InteractiveSupervisedEvaluator 
+from engines.interactive_seg_engines.trainer import SupervisedTrainer as InteractiveSupervisedTrainer
+from engines.interactive_seg_engines.evaluator import SupervisedEvaluator as InteractiveSupervisedEvaluator 
+
+#Importing the click set processing function
+from inner_loop_utils.click_set_processing import process_clickset
 
 from monai.engines.utils import IterationEvents
 from monai.transforms import Compose
@@ -52,8 +75,11 @@ logger = logging.getLogger(__name__)
 
 
 def run(self_dict, 
-        engine: DefaultSupervisedTrainer | DefaultSupervisedEvaluator,
+        engine: InteractiveSupervisedTrainer | InteractiveSupervisedEvaluator,
         batchdata: dict[str, torch.Tensor]) -> dict:
+
+    train_engine_iter_func_version_param = '1'
+    eval_engine_iter_func_version_param = '1'
 
     if self_dict['train']:
 
@@ -61,11 +87,42 @@ def run(self_dict,
         if batchdata is None:
             raise ValueError("Must provide batch data for current iteration.")
 
+        #Initialising the click info (across the batch) which will be passed into the engine for computing losses. 
+        #This is a nested dict of dictionaries which contain per sample click info.
+
+        click_info_dict_nested = dict()
+
+        #Initialising the mask info (across the batch) which will be passed into the engine for computing the losses.
+        #This is a dict of intermediate inputs for generating predictions 
+        inner_pred_inputs_dict = dict() 
+
+        inner_loop_preds_dict = dict()
+        ##################################################
+    
         label_names = batchdata["label_names"]
         
         if np.random.choice([True, False], p=[self_dict['interactive_init_probability'], 1 - self_dict['interactive_init_probability']]):
             #Here we run the loop for Interactive initialisation (which is the default)
+            batchdata_list = decollate_batch(batchdata, detach=True)
+            
+            for k in range(len(batchdata_list)):
+                extracted_click_set = process_clickset(batchdata_list[k]['guidance'], '1')
+                click_info = {'click_set': extracted_click_set, 'click_parametrisation': None}
+                click_info_dict_nested[f'sample_index_{k + 1}'] = {'Interactive Init': click_info}
+
+                initialisation_name = 'Interactive'
+
+                # inner_pred_inputs_dict[f'sample_index_{k + 1}'] = dict() 
+
+                # inner_pred_inputs_dict[f'sample_index_{k + 1}'][f'Interactive Init Input'] = batchdata_list[k][CommonKeys.IMAGE]    
+                
+            batchdata = list_data_collate(batchdata_list)
+            # click_info[0] = batchdata["guidance"]
+
+            
+
             logger.info("Interactive Init. Inner Subloop")
+            
             
         else:
             #Here we run the loop for generating autoseg input data by zeroing out the input click channels
@@ -73,7 +130,27 @@ def run(self_dict,
             for k in range(len(batchdata_list)):
                 for i in range(self_dict['num_intensity_channel'], self_dict['num_intensity_channel'] + len(label_names)):
                     batchdata_list[k][CommonKeys.IMAGE][i] *= 0
+                
+                extracted_click_set = copy.deepcopy(label_names) 
+                #Creating an empty list for each class name
+                for class_label in extracted_click_set.keys():
+                    extracted_click_set[class_label] = []
+
+                click_info = {'click_set': extracted_click_set, 'click_parametrisation': None}
+
+                click_info_dict_nested[f'sample_index_{k + 1}'] = {'Autoseg Init': click_info}
+
+                initialisation_name = 'Autoseg'
+
+                # inner_pred_inputs_dict[f'sample_index_{k + 1}'] = dict() 
+
+                # inner_pred_inputs_dict[f'sample_index_{k + 1}'][f'Autoseg Init Input'] = batchdata_list[k][CommonKeys.IMAGE]  
+
+
             batchdata = list_data_collate(batchdata_list)
+
+            
+
             logger.info("AutoSegmentation Inner Subloop")
             
         #Here we print whether the input is on the cuda device from the initialisation:
@@ -85,7 +162,10 @@ def run(self_dict,
         
             logger.info("Interactive Editing mode Inner Subloop")
 
-            for j in range(self_dict['max_iterations']):
+            #We randomly generate the number of editing iterations being performed.
+            max_iterations = np.random.randint(1, self_dict['max_iterations'] + 1) # + 1 because randint is not inclusive of the upper val.
+
+            for j in range(max_iterations):
                 inputs, _ = engine.prepare_batch(batchdata)
                 #Next line puts the inputs on the cuda device
                 inputs = inputs.to(engine.state.device)
@@ -104,7 +184,10 @@ def run(self_dict,
                             predictions = engine.inferer(inputs, engine.network)
                     else:
                         predictions = engine.inferer(inputs, engine.network)
+            
+                #Updating the prediction for the inner loop click transforms.
                 batchdata.update({CommonKeys.PRED: predictions})
+
                 
                 # decollate/collate batchdata to execute click transforms
                 batchdata_list = decollate_batch(batchdata, detach=True)
@@ -113,10 +196,47 @@ def run(self_dict,
                 logger.info(f'The pre-click transform inputs: Image is on cuda: {batchdata_list[0]["image"].is_cuda}, Label is on cuda {batchdata_list[0]["label"].is_cuda}, Prediction is on cuda {batchdata_list[0]["pred"].is_cuda}')
                
                 for i in range(len(batchdata_list)):
-                    batchdata_list[i][self_dict['click_probability_key']] = (
-                        (1.0 - ((1.0 / self_dict['max_iterations']) * j))
-                    )
+                    
+                    #Saving the intermediate info 
+                    if j == 0: 
+                        #If in the first editing iter in the subloop, then save the input under the Init input key for the given sample index.
+                        
+                        inner_pred_inputs_dict[f'sample_index_{i + 1}'] = dict() 
+
+                        inner_pred_inputs_dict[f'sample_index_{i + 1}'][f'{initialisation_name} Init Input'] = batchdata_list[i][CommonKeys.IMAGE]
+
+                        
+                    else: 
+                        #Otherwise, save the input under the key for the editing input's iteration that the input corresponds to (i.e. edit iter 1 has key edit iter input 1)
+                        inner_pred_inputs_dict[f'sample_index_{i + 1}'][f'Editing Iter {j} Input'] = batchdata_list[i][CommonKeys.IMAGE]
+
+
+                    #Run the inner click transforms to generate the new inputs.
+
+                    batchdata_list[i][self_dict['click_probability_key']] = 1.0 
+                 
                     batchdata_list[i] = self_dict['transforms'](batchdata_list[i])
+
+                    
+                    #Saving the intermediate predictions which are discretised in the inner list of transforms
+                    if j == 0: 
+                        #If in the first editing iter in the subloop,
+                        inner_loop_preds_dict[f'sample_index_{i + 1}'] = dict()
+                        inner_loop_preds_dict[f'sample_index_{i + 1}'][f'{initialisation_name} Init Pred'] = batchdata_list[i][CommonKeys.PRED]
+
+                    else: 
+                        #Otherwise, save the pred made in eval mode under the key for the editing input's iteration that the pred corresponds to (i.e. edit iter 1 has key edit iter input 1)
+                        
+                        inner_loop_preds_dict[f'sample_index_{i+1}'][f'Editing Iter {j} Pred'] = batchdata_list[i][CommonKeys.PRED]
+
+
+
+                    extracted_click_set = process_clickset(batchdata_list[i]['guidance'], '1')
+                    
+                    click_info = {'click_set': extracted_click_set, 'click_parametrisation': None}
+                    click_info_dict_nested[f'sample_index_{i + 1}'][f'Editing Iter {j + 1}'] = click_info
+
+                
 
                 #############################################################
 
@@ -129,8 +249,8 @@ def run(self_dict,
 
         logger.info(f'For the final inputs the image is on cuda: {batchdata["image"].is_cuda}, the label is on cuda: {batchdata["label"].is_cuda}')
         logger.info(f'For the engine, amp is {engine.amp}')
-        
-        return engine._iteration(engine, batchdata)  # type: ignore[arg-type]
+                
+        return engine._iteration(engine=engine, batchdata=batchdata, func_version_param=train_engine_iter_func_version_param, click_info=click_info_dict_nested, inner_pred_inputs=inner_pred_inputs_dict, inner_loop_preds=inner_loop_preds_dict)  # type: ignore[arg-type]
 
     else:
 
@@ -143,23 +263,21 @@ def run(self_dict,
         label_names = batchdata["label_names"]
         
         ######################## Code for creating dir for saving output files ##############################
-        # meta_dict_filename = batchdata["image"].meta["filename_or_obj"][0]
-        # studies_name = meta_dict_filename.split('/')[meta_dict_filename.split('/').index('datasets') + 1]
-        
-        external_val_output_dir = self_dict['external_validation_output_dir'] #, 'external_validation', studies_name)
+
+        external_val_output_dir = self_dict['external_validation_output_dir'] 
 
         if not os.path.exists(external_val_output_dir):
             os.makedirs(external_val_output_dir)
 
-        ############ Implementation of validation in-the-loop so that we can validate across all modes. ######################
-        #We just do autoseg and interactive init for now, deepedit (the with an automatic pre-transform one) is already done as part of the default validation config).
+        ############ Implementation of hacky validation so that we can validate across all modes. ######################
+        #We first do autoseg and interactive init, deepedit (+ the selected init for default validation) is done correspondingly to the default validation config.
         
         if not self_dict['train']:
             
             logger.info('Validation occuring')
-            #Make a diff copy of the params e.g. batchdata so it does not affect the normal validation. 
+            #Make a diff deepcopy of the variables e.g. batchdata so it does not affect the normal validation. 
             
-            ######################################### THESE VALIDATION METHODS ONLY APPLY FOR BATCH SIZE 1 ######################################
+            
             batchdata_val_deepgrow = copy.deepcopy(batchdata)
             #First we compute the interactive init mode validation generations:
             inputs_val_deepgrow, _ = engine.prepare_batch(batchdata_val_deepgrow)
@@ -179,10 +297,19 @@ def run(self_dict,
             batchdata_val_autoseg = copy.deepcopy(batchdata)
 
             batchdata_list_val_autoseg = decollate_batch(batchdata_val_autoseg, detach=True)
-            for i in range(self_dict['num_intensity_channel'], self_dict['num_intensity_channel'] + len(label_names)):
-                batchdata_list_val_autoseg[0][CommonKeys.IMAGE][i] *= 0
-            batchdata_val_autoseg = list_data_collate(batchdata_list_val_autoseg)
-            
+
+            #Zero'ing out the guidance channels for autoseg mode validation.
+
+            validation_batch_size = len(batchdata_list_val_autoseg)
+
+            for j in range(validation_batch_size):
+
+                for i in range(self_dict['num_intensity_channel'], self_dict['num_intensity_channel'] + len(label_names)):
+                    batchdata_list_val_autoseg[j][CommonKeys.IMAGE][i] *= 0
+                #Recollate for prediction.
+                batchdata_val_autoseg = list_data_collate(batchdata_list_val_autoseg)
+
+            #Preparing the batchdata for passing into the inferer.
             inputs_val_autoseg, _ = engine.prepare_batch(batchdata_val_autoseg)
             inputs_val_autoseg = inputs_val_autoseg.to(engine.state.device)
 
@@ -192,52 +319,59 @@ def run(self_dict,
                         predictions_val_autoseg = engine.inferer(inputs_val_autoseg, engine.network)
                 else:
                     predictions_val_autoseg = engine.inferer(inputs_val_autoseg, engine.network)
-            
+                
             
             
             ################# Process the predictions and label for metric computation ###########################
-            discretised_label = AsDiscrete(argmax=False, to_onehot=len(label_names))(batchdata['label'][0])
 
-            #Interactive init.
-            deepgrow_activation = Activations(softmax=True)(predictions_val_deepgrow[0])
-            deepgrow_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(deepgrow_activation)
+            #We sum over the predictions in the batch and average later.
+            deepgrow_dice = 0
+            autoseg_dice = 0 
+
+            for j in range(validation_batch_size):
+
+                discretised_label = AsDiscrete(argmax=False, to_onehot=len(label_names))(batchdata['label'][j])
+
+                #Interactive init.
+                deepgrow_activation = Activations(softmax=True)(predictions_val_deepgrow[j])
+                deepgrow_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(deepgrow_activation)
+                
+                #We will only compute the meandice for now, no need for dice on each individual label currently.., 
+                # just need to see how it stacks up comparatively to the DeepEdit one (any fluctuation between classes likely shows up on DeepEdit/Editing mode also)
+
+                #Metric computations:
+
+                deepgrow_dice += DiceHelper(  # type: ignore
+                    include_background= False,
+                    sigmoid = False,
+                    softmax = False, 
+                    activate = False,
+                    get_not_nans = False,
+                    reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
+                    ignore_empty = True,
+                    num_classes = None
+                    )(y_pred=deepgrow_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))[0]
+
+
+                #Autoseg
+                autoseg_activation = Activations(softmax=True)(predictions_val_autoseg[j])
+                autoseg_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(autoseg_activation)
+
+
+                
+                autoseg_dice += DiceHelper(  # type: ignore
+                    include_background= False,
+                    sigmoid = False,
+                    softmax = False, 
+                    activate = False,
+                    get_not_nans = False,
+                    reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
+                    ignore_empty = True,
+                    num_classes = None
+                    )(y_pred=autoseg_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))[0]
             
-            #We will only compute the meandice for now, no need for dice on each individual label currently.., 
-            # just need to see how it stacks up comparatively to the DeepEdit one (any fluctuation between classes likely shows up on DeepEdit/Editing mode also)
 
-
-            #Autoseg
-            autoseg_activation = Activations(softmax=True)(predictions_val_autoseg[0])
-            autoseg_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(autoseg_activation)
-
-
-
-            #Metric computations:
-
-            deepgrow_dice = DiceHelper(  # type: ignore
-                include_background= False,
-                sigmoid = False,
-                softmax = False, 
-                activate = False,
-                get_not_nans = False,
-                reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
-                ignore_empty = True,
-                num_classes = None
-                )(y_pred=deepgrow_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))
-            
-            autoseg_dice = DiceHelper(  # type: ignore
-                include_background= False,
-                sigmoid = False,
-                softmax = False, 
-                activate = False,
-                get_not_nans = False,
-                reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
-                ignore_empty = True,
-                num_classes = None
-                )(y_pred=autoseg_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))
-            
-
-        ###################################################### Normal implementation of DeepEdit++ #########################################################################
+        ###################################################### Standard Inner Loop / Non - Hacky validation #########################################################################
 
         if np.random.choice([True, False], p=[self_dict['interactive_init_probability'], 1 - self_dict['interactive_init_probability']]):
             #Here we run the loop for Interactive Initialisation (which is the default)
@@ -344,8 +478,6 @@ def run(self_dict,
             inputs_val_deepedit, _ = engine.prepare_batch(batchdata_val_deepedit)
             inputs_val_deepedit = inputs_val_deepedit.to(engine.state.device)
             
-            # engine.network.eval()
-            # with torch.no_grad():
             with engine.mode(engine.network):
                 if engine.amp:
                     with torch.cuda.amp.autocast():
@@ -355,32 +487,33 @@ def run(self_dict,
             
             
             
-            ################# Process the prediction for metric computation ###########################
-            
-            deepedit_activation = Activations(softmax=True)(predictions_val_deepedit[0])
-            deepedit_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(deepedit_activation)
+            ################# Process the prediction for metric computation. ###########################
             
 
-        
-            deepedit_dice = DiceHelper(  # type: ignore
-                include_background= False,
-                sigmoid = False,
-                softmax = False, 
-                activate = False,
-                get_not_nans = False,
-                reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
-                ignore_empty = True,
-                num_classes = None
-                )(y_pred=deepedit_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))
+            #Initialising the deepedit dice which we will be summing over (and then average when saving)
+            deepedit_dice = 0 
 
-            ########################### Saving outputs ##########################
+            for k in range(validation_batch_size):
+                deepedit_activation = Activations(softmax=True)(predictions_val_deepedit[k])
+                deepedit_discretised_pred = AsDiscrete(argmax=True, to_onehot=len(label_names))(deepedit_activation)
+                
+
             
-            
+                deepedit_dice += DiceHelper(  # type: ignore
+                    include_background= False,
+                    sigmoid = False,
+                    softmax = False, 
+                    activate = False,
+                    get_not_nans = False,
+                    reduction = MetricReduction.MEAN, #MetricReduction.MEAN,
+                    ignore_empty = True,
+                    num_classes = None
+                    )(y_pred=deepedit_discretised_pred.cpu().unsqueeze(dim=0), y=discretised_label.unsqueeze(dim=0))[0]
 
             ################## Saving the metrics #############################
                 
             ############# Appending the metric values to csv file ################# 
-            fields = [float(deepgrow_dice[0]), float(autoseg_dice[0]), float(deepedit_dice[0])]
+            fields = [float(deepgrow_dice)/validation_batch_size, float(autoseg_dice)/validation_batch_size, float(deepedit_dice)/validation_batch_size]
             with open(os.path.join(external_val_output_dir, 'validation_scores', 'validation.csv'),'a') as f:
                 writer = csv.writer(f)
                 writer.writerow(fields)
@@ -395,19 +528,8 @@ def run(self_dict,
         # first item in batch only
         engine.state.batch = batchdata
 
-        # inputs, _ = engine.prepare_batch(batchdata)
-
-        
-        # for i in range(inputs.size(dim=1)):
-        #     placeholder_tensor = inputs[0]
-        #     placeholder = np.array(placeholder_tensor[i])
-        #     #print(placeholder)
-        #     nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Pictures','final_inputs_channel_' + str(i)+'.nii.gz'))
-        
-        # label = batchdata["label"][0]
-        # placeholder = np.array(label[0])
-        # nib.save(nib.Nifti1Image(placeholder, None), os.path.join('/home/parhomesmaeili/Pictures/label.nii.gz'))
-
         logger.info(f'For the final inputs the image is on cuda: {batchdata["image"].is_cuda}, the label is on cuda: {batchdata["label"].is_cuda}')
         logger.info(f'For the engine, amp is {engine.amp}')
-        return engine._iteration(engine, batchdata)  # type: ignore[arg-type]
+
+
+        return engine._iteration(engine=engine, batchdata=batchdata, func_version_param=eval_engine_iter_func_version_param)  # type: ignore[arg-type]

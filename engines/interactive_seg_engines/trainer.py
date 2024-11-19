@@ -12,15 +12,16 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence, Optional
 
 import torch
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 from monai.data import MetaTensor
-from monai.engines.utils import IterationEvents, default_make_latent, default_metric_cmp_fn, default_prepare_batch
-from monai.engines.workflow import Workflow
+# from monai.engines.utils import IterationEvents, default_make_latent, default_metric_cmp_fn, default_prepare_batch
+# from monai.engines.workflow import Workflow
+
 from monai.inferers import Inferer, SimpleInferer
 from monai.transforms import Transform
 from monai.utils import AdversarialIterationEvents, AdversarialKeys, GanKeys, IgniteInfo, min_version, optional_import
@@ -35,6 +36,16 @@ else:
     Engine, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Engine")
     Metric, _ = optional_import("ignite.metrics", IgniteInfo.OPT_IMPORT_VERSION, min_version, "Metric")
     EventEnum, _ = optional_import("ignite.engine", IgniteInfo.OPT_IMPORT_VERSION, min_version, "EventEnum")
+
+#Redirecting some imports so that we can try to view it in debugger:
+import sys
+import os 
+from os.path import dirname as up 
+
+#Appending the interactive engine's directory to the path:
+sys.path.append(up(os.path.abspath(__file__)))
+from engines.interactive_seg_engines.utils import IterationEvents, default_make_latent, default_metric_cmp_fn, default_prepare_batch
+from engines.interactive_seg_engines.workflow import Workflow
 
 __all__ = ["Trainer", "SupervisedTrainer", "GanTrainer", "AdversarialTrainer"]
 
@@ -196,7 +207,13 @@ class SupervisedTrainer(Trainer):
         self.inferer = SimpleInferer() if inferer is None else inferer
         self.optim_set_to_none = optim_set_to_none
 
-    def _iteration(self, engine: SupervisedTrainer, batchdata: dict[str, torch.Tensor]) -> dict:
+    def _iteration(self, 
+                engine: SupervisedTrainer, 
+                batchdata: dict[str, torch.Tensor], 
+                func_version_param: str, 
+                click_info: dict[str, dict[str, dict[str, dict]]],
+                inner_pred_inputs: dict[str, dict[str, torch.Tensor]] | dict, 
+                inner_loop_preds: dict[str, dict[str, torch.Tensor]] | dict) -> dict:
         """
         Callback function for the Supervised Training processing logic of 1 iteration in Ignite Engine.
         Return below items in a dictionary:
@@ -208,79 +225,116 @@ class SupervisedTrainer(Trainer):
         Args:
             engine: `SupervisedTrainer` to execute operation for an iteration.
             batchdata: input data for this iteration, usually can be dictionary or tuple of Tensor data.
+            version_param: The version parameter for this function
+            click_info: A non-optional dictionary containing the click sets for each iteration (including the initialisation), and the parametrisations.
+            This dict is required otherwise can't generate masks for click-based losses.
+
+            Nested structure: - Sample index: click info dict for that sample
+                                - Autoseg/Interactive Init or Editing Iter {i} : Corresponding click info for that iteration
+                                    - click info with fields "click_set" (a dictionary), and "click_parametrisations": (a dictionary or None if the parametrisation is fixed)
+
+            inner_pred_inputs: An non-optional dictionary containing the intermediate inputs used for generation in the inner loop of the interactive segmentation simulation. 
+            These are to be used for computing predictions in engine.train() mode so that they can be used for backprop'ing gradients.
+
+                If the data synthesis configuration was an initialisation, then this is just an empty dictionary
+            
+            inner_loop_preds: A non-optional dictionary containing the discretised preds made in eval made in the inner loop. These are intended for the 
+            temporal consistency computations. 
 
         Raises:
             ValueError: When ``batchdata`` is None.
+            ValueError: When ``func_version_param`` is not supported
 
         """
         if batchdata is None:
             raise ValueError("Must provide batch data for current iteration.")
-        batch = engine.prepare_batch(batchdata, engine.state.device, engine.non_blocking, **engine.to_kwargs)
-        if len(batch) == 2:
-            inputs, targets = batch
-            args: tuple = ()
-            kwargs: dict = {}
-        else:
-            inputs, targets, args, kwargs = batch
-        # FIXME: workaround for https://github.com/pytorch/pytorch/issues/117026
-        if self.compile:
-            inputs_meta, targets_meta, inputs_applied_operations, targets_applied_operations = None, None, None, None
-            if isinstance(inputs, MetaTensor):
-                warnings.warn(
-                    "Will convert to PyTorch Tensor if using compile, and casting back to MetaTensor after the forward pass."
-                )
-                inputs, inputs_meta, inputs_applied_operations = (
-                    inputs.as_tensor(),
-                    inputs.meta,
-                    inputs.applied_operations,
-                )
-            if isinstance(targets, MetaTensor):
-                targets, targets_meta, targets_applied_operations = (
-                    targets.as_tensor(),
-                    targets.meta,
-                    targets.applied_operations,
-                )
 
-        # put iteration outputs into engine.state
-        engine.state.output = {Keys.IMAGE: inputs, Keys.LABEL: targets}
+        ################################# Inserting the supported version parameters for this function #######################################
+        
+        supported_func_version_params = ['1']
+        
+        
+        if func_version_param not in supported_func_version_params:
+            raise ValueError("The selected version parameter for the evaluator's ._iteration() function is not supported")
 
-        def _compute_pred_loss():
-            engine.state.output[Keys.PRED] = engine.inferer(inputs, engine.network, *args, **kwargs)
-            engine.fire_event(IterationEvents.FORWARD_COMPLETED)
-            engine.state.output[Keys.LOSS] = engine.loss_function(engine.state.output[Keys.PRED], targets).mean()
-            engine.fire_event(IterationEvents.LOSS_COMPLETED)
+        #######################################################################################################################################
+        
+        if func_version_param == '1':
+            
+            #TODO: Any modification to using click/masked based components may have to ensure that metatensors pass through self.compile. 
 
-        engine.network.train()
-        engine.optimizer.zero_grad(set_to_none=engine.optim_set_to_none)
+            batch = engine.prepare_batch(batchdata, engine.state.device, engine.non_blocking, **engine.to_kwargs)
+            if len(batch) == 2:
+                inputs, targets = batch
+                args: tuple = ()
+                kwargs: dict = {}
+            else:
+                inputs, targets, args, kwargs = batch
+            # FIXME: workaround for https://github.com/pytorch/pytorch/issues/117026
+            if self.compile:
+                inputs_meta, targets_meta, inputs_applied_operations, targets_applied_operations = None, None, None, None
+                if isinstance(inputs, MetaTensor):
+                    warnings.warn(
+                        "Will convert to PyTorch Tensor if using compile, and casting back to MetaTensor after the forward pass."
+                    )
+                    inputs, inputs_meta, inputs_applied_operations = (
+                        inputs.as_tensor(),
+                        inputs.meta,
+                        inputs.applied_operations,
+                    )
+                if isinstance(targets, MetaTensor):
+                    targets, targets_meta, targets_applied_operations = (
+                        targets.as_tensor(),
+                        targets.meta,
+                        targets.applied_operations,
+                    )
 
-        if engine.amp and engine.scaler is not None:
-            with torch.cuda.amp.autocast(**engine.amp_kwargs):
-                _compute_pred_loss()
-            engine.scaler.scale(engine.state.output[Keys.LOSS]).backward()
-            engine.fire_event(IterationEvents.BACKWARD_COMPLETED)
-            engine.scaler.step(engine.optimizer)
-            engine.scaler.update()
-        else:
-            _compute_pred_loss()
-            engine.state.output[Keys.LOSS].backward()
-            engine.fire_event(IterationEvents.BACKWARD_COMPLETED)
-            engine.optimizer.step()
-        # copy back meta info
-        if self.compile:
-            if inputs_meta is not None:
-                engine.state.output[Keys.IMAGE] = MetaTensor(
-                    inputs, meta=inputs_meta, applied_operations=inputs_applied_operations
-                )
-                engine.state.output[Keys.PRED] = MetaTensor(
-                    engine.state.output[Keys.PRED], meta=inputs_meta, applied_operations=inputs_applied_operations
-                )
-            if targets_meta is not None:
-                engine.state.output[Keys.LABEL] = MetaTensor(
-                    targets, meta=targets_meta, applied_operations=targets_applied_operations
-                )
-        engine.fire_event(IterationEvents.MODEL_COMPLETED)
+            # put iteration outputs into engine.state
+            engine.state.output = {Keys.IMAGE: inputs, Keys.LABEL: targets}
 
-        return engine.state.output
+            def _compute_pred_loss(click_info, inner_pred_inputs, inner_loop_preds):
+                
+
+                final_preds, loss_value = engine.loss_function(engine, click_info, inner_pred_inputs, inner_loop_preds, inputs, targets) 
+                engine.state.output[Keys.PRED] = final_preds
+                engine.state.output[Keys.LOSS] = loss_value 
+                                                #engine.loss_function(engine.state.output[Keys.PRED], targets).mean()
+
+                # engine.fire_event(IterationEvents.LOSS_COMPLETED) #No function handle that does anything with this either.
+
+
+                
+            engine.network.train()
+            engine.optimizer.zero_grad(set_to_none=engine.optim_set_to_none)
+
+            if engine.amp and engine.scaler is not None:
+                with torch.cuda.amp.autocast(**engine.amp_kwargs):
+                    _compute_pred_loss(click_info, inner_pred_inputs, inner_loop_preds)
+                engine.scaler.scale(engine.state.output[Keys.LOSS]).backward()
+                engine.fire_event(IterationEvents.BACKWARD_COMPLETED)
+                engine.scaler.step(engine.optimizer)
+                engine.scaler.update()
+            else:
+                _compute_pred_loss(click_info, inner_pred_inputs, inner_loop_preds)
+                engine.state.output[Keys.LOSS].backward()
+                engine.fire_event(IterationEvents.BACKWARD_COMPLETED)
+                engine.optimizer.step()
+            # copy back meta info
+            if self.compile:
+                if inputs_meta is not None:
+                    engine.state.output[Keys.IMAGE] = MetaTensor(
+                        inputs, meta=inputs_meta, applied_operations=inputs_applied_operations
+                    )
+                    engine.state.output[Keys.PRED] = MetaTensor(
+                        engine.state.output[Keys.PRED], meta=inputs_meta, applied_operations=inputs_applied_operations
+                    )
+                if targets_meta is not None:
+                    engine.state.output[Keys.LABEL] = MetaTensor(
+                        targets, meta=targets_meta, applied_operations=targets_applied_operations
+                    )
+            engine.fire_event(IterationEvents.MODEL_COMPLETED)
+
+            return engine.state.output
 
 
 class GanTrainer(Trainer):

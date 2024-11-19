@@ -21,7 +21,8 @@ app_dir = up(up(up(up(os.path.abspath(__file__)))))
 sys.path.append(app_dir)
 ############
 
-from engines.standard_engines.evaluator import Evaluator
+from engines.standard_engines.evaluator import Evaluator as DefaultEvaluator
+from engines.interactive_seg_engines.evaluator import Evaluator as InteractiveEvaluator
 
 
 from monai.utils import IgniteInfo, min_version, optional_import
@@ -41,7 +42,7 @@ class ValidationHandler:
     """
 
     def __init__(
-        self, interval: int, validator: Evaluator | None = None, epoch_level: bool = True, exec_at_start: bool = False
+        self, interval: int, validator: DefaultEvaluator | InteractiveEvaluator | None = None, epoch_level: bool = True, exec_at_start: bool = False
     ) -> None:
         """
         Args:
@@ -55,22 +56,22 @@ class ValidationHandler:
                 to validate the initial model before training.
 
         Raises:
-            TypeError: When ``validator`` is not a ``monai.engines.evaluator.Evaluator``.
+            TypeError: When ``validator`` is not a ``standard_engines.evaluator.Evaluator or interactive_seg_engines.evaluator.Evaluator``.
 
         """
-        if validator is not None and not isinstance(validator, Evaluator):
-            raise TypeError(f"validator must be a monai.engines.evaluator.Evaluator but is {type(validator).__name__}.")
+        if validator is not None and not isinstance(validator, DefaultEvaluator) and not isinstance(validator, InteractiveEvaluator):
+            raise TypeError(f"validator must be a standard_engines.evaluator.Evaluator or interactive_seg_engines.evaluator.Evaluator but is {type(validator).__name__}.")
         self.validator = validator
         self.interval = interval
         self.epoch_level = epoch_level
         self.exec_at_start = exec_at_start
 
-    def set_validator(self, validator: Evaluator) -> None:
+    def set_validator(self, validator: DefaultEvaluator | InteractiveEvaluator) -> None:
         """
         Set validator if not setting in the __init__().
         """
-        if not isinstance(validator, Evaluator):
-            raise TypeError(f"validator must be a monai.engines.evaluator.Evaluator but is {type(validator).__name__}.")
+        if not isinstance(validator, DefaultEvaluator) and not isinstance(validator, InteractiveEvaluator):
+            raise TypeError(f"validator must be a standard_engines.evaluator.Evaluator or interactive_engines.evaluator.Evaluator but is {type(validator).__name__}.")
         self.validator = validator
 
     def attach(self, engine: Engine) -> None:
