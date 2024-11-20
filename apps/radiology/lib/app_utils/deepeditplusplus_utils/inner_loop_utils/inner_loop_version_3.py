@@ -1,20 +1,17 @@
 '''
 Version of the inner loop which is deepedit++ like but performs variable number of editing iterations prior to the final iteration (and the info from intermediate iters) are
-passed into the interactive engine.
+passed into the interactive engine).
 
 The training engine is still intended to perform a forward pass on the final iteration's generated inputs.
 
 
 INTENDED FOR THE interactive training engine
 
-For evaluation, we just use the standard engine on the final output (for the default validation output)
-
-
 Retains the click sets for click-based loss computations ONLY. Click probability = 1, enforcement of quicker convergence will come from the loss function. 
 Does not extract any of the click parametrisation info from the actual compose transforms (we use a dummy.)
 
-Currently the version parameter used for the training engine is not one which uses the click information for the loss yet.
-
+-------------------
+For evaluation, we just use the interactive evaluator version which uses the standard evaluator engine version on the final output (for the default validation output)
 
 For validation, the full set of editing iterations are always implemented.
 

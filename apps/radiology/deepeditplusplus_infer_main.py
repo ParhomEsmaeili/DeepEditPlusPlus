@@ -335,7 +335,7 @@ def main():
     parser.add_argument("--config_mode", default='infer')
     parser.add_argument("--infer_type", default="validation")#choices=("test", "validation")
     parser.add_argument('--infer_run', default='0')
-    parser.add_argument("--infer_run_name", nargs="+", default=["Editing", "Autoseg", "10"], help="The subtask/mode which we want to execute")
+    parser.add_argument("--infer_run_name", nargs="+", default=["Editing", "Interactive", "10"], help="The subtask/mode which we want to execute")
     #Possible options include: Autoseg, Interactive, Editing + Either init mode + number of edit iters.
     parser.add_argument("--infer_click_parametrised_bool", default=False) #The bool which contains the information about whether the click is parametrised or not.
     parser.add_argument("--infer_click_parametrisations", nargs="+", default=["None"]) #
@@ -362,7 +362,7 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='20241104_135136') 
+    parser.add_argument("--datetime", default='20241102_121843') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 
@@ -387,7 +387,7 @@ def main():
     if len(args.infer_run_name) > 1:
             run_name_string = args.infer_run_name[1].title() + "_initialisation_" + args.infer_run_name[2] + '_edit_iters'
     else:
-        run_name_string = args.infer_run_name[0]
+        run_name_string = args.infer_run_name[0] + "_initialisation"
 
     ############# Extracting the name of the inference time click parametrisations ################# 
 

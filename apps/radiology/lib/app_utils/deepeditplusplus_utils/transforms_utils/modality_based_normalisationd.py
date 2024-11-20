@@ -107,6 +107,6 @@ class ImageNormalisationd(MapTransform):
 
         if self.version_param == '3':
             
-            raise ValueError('This version is not yet supported! This is intended to have the CT modalities by normalised using the heuristic planner values')
+            raise ValueError('This version is not yet supported! This is intended to have the CT modalities by normalised using the heuristic planner values. Needs to also do a better job of normalising the values so the gradient is maintained for the non CT modalities (maybe Z-score?)')
 
             return d    

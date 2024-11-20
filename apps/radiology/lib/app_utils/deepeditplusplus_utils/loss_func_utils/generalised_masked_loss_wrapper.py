@@ -219,15 +219,16 @@ class GeneralisedMaskedLossWrapper:
         elif self.click_parametrisation_type == 'Dynamic':
             #In this case, the parametrisation should've already been passed through/provided, we must still assert however!
 
-            #First we assert click set is not None type:
-            if guidance_points_set == None:
-                raise ValueError('Guidance points set is NoneType even though it should not be!')
+            raise NotImplementedError('Requires a handler for instances where there is an empty click set for a class, needs to produce a dummy parametrisation..?')
+            # #First we assert click set is not None type:
+            # if guidance_points_set == None:
+            #     raise ValueError('Guidance points set is NoneType even though it should not be!')
             
-            #We then make assertions on the parametrisations being available for each mask type.
-            for mask_type in self.mask_strategy:
-                #We will assert that every mask type in the mask_strategy has a parametrisation in the parametrisation dictionary..
-                if mask_type not in guidance_points_parametrisations['sample_index_1'].keys():
-                    raise KeyError(f'The parameters for the mask type {mask_type} was required, but was not provided.')
+            # #We then make assertions on the parametrisations being available for each mask type.
+            # for mask_type in self.mask_strategy:
+            #     #We will assert that every mask type in the mask_strategy has a parametrisation in the parametrisation dictionary..
+            #     if mask_type not in guidance_points_parametrisations['sample_index_1'].keys():
+            #         raise KeyError(f'The parameters for the mask type {mask_type} was required, but was not provided.')
                 
         elif self.click_parametrisation_type == 'Fixed':
             

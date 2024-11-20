@@ -96,17 +96,23 @@ def probabilistic_inner_loop_runner(app, request_templates, device, inference_ru
 
             if sequentiality_mode == 'CIM':
                 tracked_guidance = dict()
-                for key in label_configs["labels"].keys(): 
-                    tracked_guidance[key] = [] 
+                for label_name in label_configs.keys(): 
+                    tracked_guidance[label_name] = [] 
         
         elif initialisation_mode.title() == "Interactive":
-            initial_request, transform_output_dict, tracked_guidance = click_simulation_class_initialised(initial_request, clicking_mode = 'interactive', gt_path=gt_path, tracked_guidance=None)
-            res = app.infer(request = initial_request)
-                    
+            if sequentiality_mode == 'CIM':
+
+                initial_request, transform_output_dict, tracked_guidance = click_simulation_class_initialised(initial_request, clicking_mode = 'interactive', gt_path=gt_path, tracked_guidance=None)
+                res = app.infer(request = initial_request)
+
+            elif sequentiality_mode == 'SIM':
+                initial_request, transform_output_dict = click_simulation_class_initialised(initial_request, clicking_mode = 'interactive', gt_path=gt_path, tracked_guidance=None)
+                res = app.infer(request = initial_request)
+            
             #Saving the guidance points (RAS orientation). 
             guidance_points_save = dict()
-            for class_label_name in label_configs["labels"].keys():
-                guidance_points_save[label_name] = initial_request[class_label_name]
+            for label_name in label_configs.keys():
+                guidance_points_save[label_name] = initial_request[label_name]
             
 
             try:
@@ -136,42 +142,79 @@ def probabilistic_inner_loop_runner(app, request_templates, device, inference_ru
             # The function which will simulate click points given the existing segmentation, and the ground truth. 
             if sequentiality_mode == "SIM":
                 subsequent_request, transform_output_dict = click_simulation_class_initialised.__call__(subsequent_request, clicking_mode = 'deepedit', gt_path = gt_path, tracked_guidance=None)
+                #Saving the guidance points (RAS orientation). 
+
+            
+                guidance_points_save = dict()
+                for label_name in label_configs.keys():
+                    guidance_points_save[label_name] = subsequent_request[label_name]
+
+                if i != num_iterations:
+                    try:
+                        with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'r') as f:
+                            saved_dict = json.load(f)
+                            saved_dict[image_id] = guidance_points_save
+                        with open(os.path.join(guidance_points_save_folder, f'deepedit_iteration_{i}.json'), 'w') as f:
+                            json.dump(saved_dict, f) 
+                    except:
+                        with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'w') as f:
+                            # saved_dict = json.load(f)
+                            saved_dict = dict()
+                            saved_dict[image_id] = guidance_points_save
+                            json.dump(saved_dict, f) 
+                else:
+                    try:
+                        with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'r') as f:
+                            saved_dict = json.load(f)
+                            saved_dict[image_id] = guidance_points_save
+                        with open(os.path.join(guidance_points_save_folder, f'final_iteration.json'), 'w') as f:
+                            json.dump(saved_dict, f) 
+                    except:
+                        with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'w') as f:
+                            # saved_dict = json.load(f)
+                            saved_dict = dict()
+                            saved_dict[image_id] = guidance_points_save
+                            json.dump(saved_dict, f) 
+
             elif sequentiality_mode == "CIM":
                 tracked_guidance_input = copy.deepcopy(tracked_guidance)
                 subsequent_request, transform_output_dict, tracked_guidance = click_simulation_class_initialised.__call__(subsequent_request, clicking_mode = 'deepedit', gt_path = gt_path, tracked_guidance=None)      
+
+                #Saving the guidance points (RAS orientation) with the tracked guidance. 
+
+            
+                guidance_points_save = dict()
+                for label_name in label_configs.keys():
+                    guidance_points_save[label_name] = tracked_guidance_input[label_name]
+
+                if i != num_iterations:
+                    try:
+                        with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'r') as f:
+                            saved_dict = json.load(f)
+                            saved_dict[image_id] = guidance_points_save
+                        with open(os.path.join(guidance_points_save_folder, f'deepedit_iteration_{i}.json'), 'w') as f:
+                            json.dump(saved_dict, f) 
+                    except:
+                        with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'w') as f:
+                            # saved_dict = json.load(f)
+                            saved_dict = dict()
+                            saved_dict[image_id] = guidance_points_save
+                            json.dump(saved_dict, f) 
+                else:
+                    try:
+                        with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'r') as f:
+                            saved_dict = json.load(f)
+                            saved_dict[image_id] = guidance_points_save
+                        with open(os.path.join(guidance_points_save_folder, f'final_iteration.json'), 'w') as f:
+                            json.dump(saved_dict, f) 
+                    except:
+                        with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'w') as f:
+                            # saved_dict = json.load(f)
+                            saved_dict = dict()
+                            saved_dict[image_id] = guidance_points_save
+                            json.dump(saved_dict, f) 
+
             #Transform output dict just contains the dictionary of data which has been passed through the transforms (e.g. the labels!) 
-
-            #Saving the guidance points (RAS orientation). 
-            guidance_points_save = dict()
-            for label_name in label_configs.keys():
-                guidance_points_save[label_name] = subsequent_request[label_name]
-
-            if i != num_iterations:
-                try:
-                    with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'r') as f:
-                        saved_dict = json.load(f)
-                        saved_dict[image_id] = guidance_points_save
-                    with open(os.path.join(guidance_points_save_folder, f'deepedit_iteration_{i}.json'), 'w') as f:
-                        json.dump(saved_dict, f) 
-                except:
-                    with open(os.path.join(guidance_points_save_folder,f'deepedit_iteration_{i}.json'), 'w') as f:
-                        # saved_dict = json.load(f)
-                        saved_dict = dict()
-                        saved_dict[image_id] = guidance_points_save
-                        json.dump(saved_dict, f) 
-            else:
-                try:
-                    with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'r') as f:
-                        saved_dict = json.load(f)
-                        saved_dict[image_id] = guidance_points_save
-                    with open(os.path.join(guidance_points_save_folder, f'final_iteration.json'), 'w') as f:
-                        json.dump(saved_dict, f) 
-                except:
-                    with open(os.path.join(guidance_points_save_folder,f'final_iteration.json'), 'w') as f:
-                        # saved_dict = json.load(f)
-                        saved_dict = dict()
-                        saved_dict[image_id] = guidance_points_save
-                        json.dump(saved_dict, f) 
 
             if debug_click_placement:
                 #If we want to output files to do a sanity check:
@@ -206,6 +249,7 @@ def probabilistic_inner_loop_runner(app, request_templates, device, inference_ru
         input_request["image"] = image_id
         
         #Task name:
+        print(infer_run_name[0])
         initialisation = infer_run_name[0]
         
         if initialisation.title() == 'Autoseg':
@@ -224,9 +268,9 @@ def probabilistic_inner_loop_runner(app, request_templates, device, inference_ru
             gt_path = os.path.join(output_dir, 'labels', 'original', image_id + '.nii.gz')
             
             if sequentiality_mode == 'SIM':
-                input_request, transform_output_dict = click_simulation_class_initialised.__call__(input_request, label_configs, clicking_mode = initialisation.lower(), gt_path = gt_path, tracked_guidance=None)
+                input_request, transform_output_dict = click_simulation_class_initialised.__call__(input_request, clicking_mode = initialisation.lower(), gt_path = gt_path, tracked_guidance=None)
             elif sequentiality_mode == 'CIM':
-                input_request, transform_output_dict, tracked_guidance = click_simulation_initialised.__call__(input_request, label_configs, clicking_mode = initialisation.lower(), gt_path = gt_path, tracked_guidance=None)
+                input_request, transform_output_dict, tracked_guidance = click_simulation_initialised.__call__(input_request,  clicking_mode = initialisation.lower(), gt_path = gt_path, tracked_guidance=None)
             
             res = app.infer(request=input_request)
             

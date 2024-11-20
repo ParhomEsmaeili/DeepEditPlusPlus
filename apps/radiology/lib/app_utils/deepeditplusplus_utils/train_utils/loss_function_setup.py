@@ -45,7 +45,8 @@ def run_get_loss_func(self_dict, context, func_version_param):
     assert func_version_param in supported_version_params, 'The version parameter was not supported for obtaining the loss function'
 
     if func_version_param == '0':
-
+        #This version is intended for a standard segmentation engine, where the final set of inputs from an inner loop are used to perform a forward pass
+        #for computing the loss.
         return DiceCELoss(to_onehot_y=True, softmax=True)
 
 
@@ -328,14 +329,12 @@ def run_get_loss_func(self_dict, context, func_version_param):
         }
 
         #Setting the parametrisation for the masks, if applicable. 
-        # click_parametrisation_vals = {
-        #     'Base': None, #Base does not require parametrisation,
-        #     'Local Responsiveness': {'Ellipsoid':[10,10,10]},
-        #     'Temporal Consistency': {'Ellipsoid':[10,10,10]}
-        # }
+        click_parametrisation_vals = {
+            'Base': None, #Base does not require parametrisation,
+            'Local Responsiveness': {'Ellipsoid':[5,5,5]},
+            'Temporal Consistency': {'Ellipsoid':[5,5,5]}
+        }
 
-        raise NotImplementedError('Need to modify the parametrisations')
-        
         #Defining the inputs for initialising the classes for each of the loss components. For now we will assume that these are consistent across the modes for each
         #subcomponent 
 
