@@ -1,6 +1,6 @@
 '''
 File which contains the function which produces the loss function component in the train setup. 
-
+Version = -1: Default Dice Cross Entropy loss with deep supervision loss heads
 Version = 0: Default DeepEdit loss, an unweighted Dice - Cross Entropy loss. 
 Version = 1: Multi-iteration loss heads, reduction = sum, unweighted Dice - Cross Entropy loss for each use mode and head. FULL iteration memory for loss heads.
 Version = 2: Multi-iteration loss heads, reduction = sum, unweighted dice - cross entropy loss for each use mode and head. FINAL iteration memory only for loss heads.
@@ -28,6 +28,7 @@ deepeditpp_utils_dir = up(up(os.path.abspath(__file__)))
 sys.path.append(deepeditpp_utils_dir)
 
 # from monai.losses import DiceCELoss 
+from loss_func_utils.ds_loss import DeepSupervisionLoss
 from loss_func_utils.dice import DiceCELoss 
 from loss_func_utils.multi_iter_loss_heads import MultiIterationLossHeads
 from loss_func_utils.generalised_masked_loss_wrapper import GeneralisedMaskedLossWrapper
@@ -40,13 +41,19 @@ def run_get_loss_func(self_dict, context, func_version_param):
     assert type(self_dict) == dict 
     assert type(func_version_param) == str 
 
-    supported_version_params = ['0', '1', '2', '3', '4']
+    supported_version_params = ['-1', '0', '1', '2', '3', '4']
     
     assert func_version_param in supported_version_params, 'The version parameter was not supported for obtaining the loss function'
 
-    if func_version_param == '0':
+    if func_version_param == '-1':
+        #This verison is intended for a standard segmentation engine, where the final set of inputs from an inner loop are used to perform a standard forward
+        #pass for performing a global segmentation based loss computation.
+
+        return DeepSupervisionLoss(DiceCELoss(to_onehot_y=True, softmax=True))
+
+    elif func_version_param == '0':
         #This version is intended for a standard segmentation engine, where the final set of inputs from an inner loop are used to perform a forward pass
-        #for computing the loss.
+        #for computing the loss on a global segmentation only.
         return DiceCELoss(to_onehot_y=True, softmax=True)
 
 

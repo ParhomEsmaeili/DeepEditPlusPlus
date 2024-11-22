@@ -37,13 +37,46 @@ import copy
 
 logger = logging.getLogger(__name__)
 
+'''
+Version -1: The fully autoseg only network's config (i.e. only uses the image!).
+Version 1: The deepedit++ v1.1 like config
+'''
 
 def run_infer_class_config(version_param, self_dict):
         
-    supported_versions = ['1']
+    supported_versions = ['-1', '1']
     assert version_param in supported_versions, 'The infer class config setup was not supported' 
+
+    if version_param == '-1':
         
-    if version_param == '1':
+        print('checkpoint path is:')
+        print(self_dict['infer_path'])
+        
+        transforms_params_dict = dict()  #Contains the information about permutable variables that parametrise the transforms..
+
+        transforms_params_dict['spatial_size'] = self_dict['spatial_size']
+        transforms_params_dict['target_spacing'] = self_dict['target_spacing']
+        transforms_params_dict['divisible_padding_factor'] = self_dict['divisible_padding_factor']
+
+        return {
+            
+            f"{self_dict['name']}_autoseg": InferDeepEditPlusPlus(
+                path=self_dict['infer_path'],
+                modality=self_dict['imaging_modality'],
+                infer_version_params = self_dict['infer_version_params'],
+                transforms_parametrisation_dict = transforms_params_dict, 
+                network=self_dict['networks_dict']['base_network'],
+                #original_dataset_labels=self.original_dataset_labels,
+                #label_mapping=self.label_mapping,
+                labels=self_dict['labels'],
+                preload=strtobool(self_dict['conf'].get("preload", "false")),
+                number_intensity_ch=self_dict['number_intensity_ch'],
+                type=InferType.SEGMENTATION,
+            )
+        }
+    
+
+    elif version_param == '1':
         
         print('checkpoint path is:')
         print(self_dict['infer_path'])

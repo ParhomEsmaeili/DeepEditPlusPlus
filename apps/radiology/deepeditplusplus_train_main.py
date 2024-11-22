@@ -342,22 +342,23 @@ def main():
     #Introducing the version params for setting up training_setup.py, the config_setup.py version param, and the network selected version_param.
     
     parser.add_argument("--optimizer_version_param", default='0')
-    parser.add_argument("--loss_func_version_param", default='3')
+    parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
-    parser.add_argument("--train_pre_transforms_version_param", default='3')
-    parser.add_argument("--train_post_transforms_version_param", default='1')
-    parser.add_argument("--val_pre_transforms_version_param", default='3')
+    parser.add_argument("--train_pre_transforms_version_param", default='-1')
+    parser.add_argument("--train_post_transforms_version_param", default='2')
+    parser.add_argument("--val_pre_transforms_version_param", default='-1')
+    parser.add_argument("--val_post_transforms_version_param", default='1')
     parser.add_argument("--train_inferer_version_param", default='0')
     parser.add_argument("--val_inferer_version_param", default='0')
-    parser.add_argument("--train_iter_update_version_param", default='3')
-    parser.add_argument("--val_iter_update_version_param", default='3')
+    parser.add_argument("--train_iter_update_version_param", default='-1')
+    parser.add_argument("--val_iter_update_version_param", default='-1')
     parser.add_argument("--train_key_metric_version_param", default='1')
     parser.add_argument("--val_key_metric_version_param", default='1')
     parser.add_argument("--train_handler_version_param", default='0')
-    parser.add_argument("--engine_version_param", default='1')
+    parser.add_argument("--engine_version_param", default='0')
 
     parser.add_argument("--train_config_version_param", default='1')
-    parser.add_argument("--network_version_param", default='0') 
+    parser.add_argument("--network_version_param", default='-1') 
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
 
@@ -418,6 +419,7 @@ def main():
         "train_pre_transforms_version_param": args.train_pre_transforms_version_param,
         "train_post_transforms_version_param": args.train_post_transforms_version_param,
         "val_pre_transforms_version_param": args.val_pre_transforms_version_param,
+        "val_post_transforms_version_param": args.val_post_transforms_version_param,
         "train_inferer_version_param": args.train_inferer_version_param,
         "val_inferer_version_param": args.val_inferer_version_param,
         "train_iter_update_version_param": args.train_iter_update_version_param,

@@ -18,6 +18,8 @@ file_dir = up(os.path.abspath(__file__))
 sys.path.append(file_dir)
 engines_dir = os.path.join(up(up(up(up(up(up(up(os.path.abspath(__file__)))))))), 'engines')
 sys.path.append(engines_dir)
+
+from inner_loop_utils.inner_loop_version_minus_1 import run as inner_loop_minus_1_run
 from inner_loop_utils.inner_loop_version_1 import run as inner_loop_1_run
 from inner_loop_utils.inner_loop_version_2 import run as inner_loop_2_run
 from inner_loop_utils.inner_loop_version_3 import run as inner_loop_3_run
@@ -50,6 +52,7 @@ from monai.utils.enums import CommonKeys
 '''
 Version param denotes the version of this interaction/inner loop functionality that is being used for training. 
 
+Version -1: A fully autoseg implementation (i.e. it does nothing.)
 Version 0: DeepEdit original implementation. (not yet re-implemented)
 Version 1: DeepEdit++ v1.1 version.
 Version 2: Approximate loop unrolling (randomly selected the max-iter value for each training iteration from the max-iter param as an upper limit.)
@@ -94,12 +97,12 @@ class Interaction:
         # deepedit_probability: float,
         self_dict,
         num_intensity_channel: int,
-        transforms: Sequence[Callable] | Callable,
+        transforms: Sequence[Callable] | Callable | None,
         train: bool,
         #label_names: None | dict[str, int] = None,
-        click_probability_key: str = "probability",
+        click_probability_key: str | None = None,
         # max_iterations: int = 1,
-        external_validation_output_dir:str = None,
+        external_validation_output_dir:str | None = None,
         version_param: str = '1'
         ) -> None:
 
@@ -127,7 +130,7 @@ class Interaction:
             self.interactive_init_probability = self_dict['component_parametrisation_dict']['interactive_init_probability_val']
             self.deepedit_probability = self_dict['component_parametrisation_dict']['deepedit_probability_val']
 
-        self.supported_inner_loop_versions = ['1','2', '3', '4']
+        self.supported_inner_loop_versions = ['-1', '1','2', '3', '4']
 
         # self.self_dict = dict(vars(self)) #Creating a dictionary from the self attributes, this will be fed forward into the 
 
@@ -138,7 +141,11 @@ class Interaction:
                 engine: DefaultSupervisedTrainer | DefaultSupervisedEvaluator | InteractiveSupervisedTrainer | InteractiveSupervisedEvaluator, 
                 batchdata: dict[str, torch.Tensor]) -> dict:
         
-        if self.version_param == '1':
+        if self.version_param == '-1':
+
+            return inner_loop_minus_1_run(dict(vars(self)), engine, batchdata)
+
+        elif self.version_param == '1':
 
             #The train/val mode should be partitioned in the actual train setup.py script. The same params are being used but the value assigned will differ! 
             

@@ -2,11 +2,14 @@
 
 Supported version:
 
+Version -1: Configured the same as version 2, but only intended for a fully autoseg model.
+
+
 Version 1: DeepEdit++ v1.1 from the upgrade report, which was intended to be implemented with padding for min-max normalised images. 
 
 Version 2: Modification from min-max normalisation, to per-image quartile based normalisation in the non-CT modalities.
 
-Version: Modification from hard clipped quartile based normalisation to soft clipped.
+Version: 
 '''
 
 from monai.transforms import (
@@ -47,8 +50,23 @@ from transforms_utils.modality_based_normalisationd import ImageNormalisationd
 from inference_transforms_utils.get_original_img_infod import GetOriginalInformationd
 
 def run_get_inference_pre_transf(self_dict, data, func_version_param):
+    
+    if func_version_param == '-1':
 
-    if func_version_param == '1':
+        if self_dict["type"] == InferType.SEGMENTATION:
+            t = [
+            LoadImaged(keys="image", reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys="image"),
+            Orientationd(keys="image", axcodes="RAS"),
+            GetOriginalInformationd(keys=["image"], version_param='0'),
+            ImageNormalisationd(keys="image", modality=self_dict["modality"], version_param='2'),
+            DivisiblePadd(keys=("image"), k=self_dict["transforms_parametrisation_dict"]["divisible_padding_factor"]),
+            ]
+            
+        t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+        return t
+        
+    elif func_version_param == '1':
 
         if self_dict["type"] == InferType.DEEPEDIT:
             t = [

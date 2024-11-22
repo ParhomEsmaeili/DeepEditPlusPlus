@@ -68,16 +68,48 @@ class SplitPredsLabeld(MapTransform):
     """
     Split preds and labels for individual evaluation
 
+    Version param=0: For splitting a prediction which is one hot encoded for a NHWD shape where N = number of pred channels (for decollated batch)
+
     """
+    def __init__(self,
+                keys: KeysCollection,
+                allow_missing_keys: bool = False,
+                version_param : str = '0'):
+        
+        super().__init__(keys, allow_missing_keys)
+
+        self.version_param = version_param 
+
+        self.supported_versions = ['0']#, '1']
+
+        assert self.version_param in self.supported_versions 
 
     def __call__(self, data: Mapping[Hashable, np.ndarray]) -> dict[Hashable, np.ndarray]:
+        
+
         d: dict = dict(data)
-        for key in self.key_iterator(d):
-            if key == "pred":
-                for idx, (key_label, _) in enumerate(d["label_names"].items()):
-                    if key_label != "background":
-                        d[f"pred_{key_label}"] = d[key][idx + 1, ...][None]
-                        d[f"label_{key_label}"] = d["label"][idx + 1, ...][None]
-            elif key != "pred":
-                logger.info("This is only for pred key")
+
+        if self.version_param == '0':
+            for key in self.key_iterator(d):
+                if key == "pred":
+                    for idx, (key_label, _) in enumerate(d["label_names"].items()):
+                        if key_label != "background":
+                            d[f"pred_{key_label}"] = d[key][idx + 1, ...][None]
+                            d[f"label_{key_label}"] = d["label"][idx + 1, ...][None]
+                            #Output shape is 1HWD for each class.
+                elif key != "pred":
+                    logger.info("This is only for pred key")
+            
+        # elif self.version_param == '1':
+
+        #     for key in self.key_iterator(d):
+        #         if key == "pred_output":
+        #             for idx, (key_label, _) in enumerate(d["label_names"].items()):
+        #                 if key_label != "background":
+        #                     d[f"pred_{key_label}"] = d[key][idx + 1, ...][None]
+        #                     d[f"label_{key_label}"] = d["label"][idx + 1, ...][None]
+
+        #         elif key != "pred":
+        #             logger.info("This is only for pred key")
+            
         return d

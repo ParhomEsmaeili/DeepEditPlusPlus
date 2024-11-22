@@ -94,6 +94,7 @@ class DeepEditPlusPlus(TaskConfig):
             train_version_params["train_pre_transforms_version_param"] = self.conf.get("train_pre_transforms_version_param")
             train_version_params["train_post_transforms_version_param"] = self.conf.get("train_post_transforms_version_param")
             train_version_params["val_pre_transforms_version_param"] = self.conf.get("val_pre_transforms_version_param")
+            train_version_params["val_post_transforms_version_param"] = self.conf.get("val_post_transforms_version_param")
             train_version_params["train_inferer_version_param"] = self.conf.get("train_inferer_version_param")
             train_version_params["val_inferer_version_param"] = self.conf.get("val_inferer_version_param")
             train_version_params["train_iter_update_version_param"] = self.conf.get("train_iter_update_version_param")

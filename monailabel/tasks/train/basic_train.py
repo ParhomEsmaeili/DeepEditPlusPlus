@@ -385,7 +385,7 @@ class BasicTrainTask(TrainTask):
         return self.train_pre_transforms(context)
 
     def val_post_transforms(self, context: Context):
-        return self.train_post_transforms(context)
+        return self.val_post_transforms(context)
 
     def val_handlers(self, context: Context):
         handlers = [
