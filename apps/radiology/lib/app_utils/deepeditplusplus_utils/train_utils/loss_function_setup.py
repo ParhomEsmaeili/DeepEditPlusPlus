@@ -29,7 +29,7 @@ sys.path.append(deepeditpp_utils_dir)
 
 # from monai.losses import DiceCELoss 
 from loss_func_utils.ds_loss import DeepSupervisionLoss
-from loss_func_utils.dice import DiceCELoss 
+from loss_func_utils.dice import DiceCELoss
 from loss_func_utils.multi_iter_loss_heads import MultiIterationLossHeads
 from loss_func_utils.generalised_masked_loss_wrapper import GeneralisedMaskedLossWrapper
 from loss_func_utils.multi_iteration_loss_class_generator import run
@@ -46,7 +46,7 @@ def run_get_loss_func(self_dict, context, func_version_param):
     assert func_version_param in supported_version_params, 'The version parameter was not supported for obtaining the loss function'
 
     if func_version_param == '-1':
-        #This verison is intended for a standard segmentation engine, where the final set of inputs from an inner loop are used to perform a standard forward
+        #This version is intended for a standard segmentation engine, where the final set of inputs from an inner loop are used to perform a standard forward
         #pass for performing a global segmentation based loss computation.
 
         return DeepSupervisionLoss(DiceCELoss(to_onehot_y=True, softmax=True))

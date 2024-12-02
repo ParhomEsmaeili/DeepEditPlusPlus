@@ -2,14 +2,15 @@
 
 Supported version:
 
-Version -1: Configured the same as version 2, but only intended for a fully autoseg model.
+Version -2: Configured for a fully autoseg model but with the new image normalisation strategy for non X-ray modalities.
+Version -1: Configured the same as version 2, but only intended for a fully autoseg model. 
 
 
 Version 1: DeepEdit++ v1.1 from the upgrade report, which was intended to be implemented with padding for min-max normalised images. 
 
 Version 2: Modification from min-max normalisation, to per-image quartile based normalisation in the non-CT modalities.
 
-Version: 
+Version:
 '''
 
 from monai.transforms import (
@@ -50,7 +51,61 @@ from transforms_utils.modality_based_normalisationd import ImageNormalisationd
 from inference_transforms_utils.get_original_img_infod import GetOriginalInformationd
 
 def run_get_inference_pre_transf(self_dict, data, func_version_param):
-    
+    assert type(self_dict) == dict 
+    assert type(func_version_param) == str 
+    supported_version_params = ['-3', '-2', '-1', '1', '2']
+
+    # if func_version_param == '-4':
+    #     #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+    #     #Also modifies the padding so that it uses reflection.
+        
+    #     if self_dict["type"] == InferType.SEGMENTATION:
+    #         t = [
+    #         LoadImaged(keys="image", reader="ITKReader", image_only=False),
+    #         EnsureChannelFirstd(keys="image"),
+    #         Orientationd(keys="image", axcodes="RAS"),
+    #         GetOriginalInformationd(keys=["image"], version_param='0'),
+    #         ImageNormalisationd(keys="image", planner_dict = data['planner_dict'], modality=self_dict["modality"], version_param='4'),
+    #         DivisiblePadd(keys=("image"), k=self_dict["transforms_parametrisation_dict"]["divisible_padding_factor"], mode='reflection'),
+    #         ]
+            
+    #         t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+    #         return t
+
+    if func_version_param == '-3':
+        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+        #Also modifies the padding back so that it uses zeroes for padding. 
+        
+        if self_dict["type"] == InferType.SEGMENTATION:
+            t = [
+            LoadImaged(keys="image", reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys="image"),
+            Orientationd(keys="image", axcodes="RAS"),
+            GetOriginalInformationd(keys=["image"], version_param='0'),
+            ImageNormalisationd(keys="image", planner_dict = data['planner_dict'], modality=self_dict["modality"], version_param='4'),
+            DivisiblePadd(keys=("image"), k=self_dict["transforms_parametrisation_dict"]["divisible_padding_factor"]),
+            ]
+            
+            t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+            return t
+
+    if func_version_param == '-2':
+        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+        #Modified so that for padding it uses the edge value (i.e. background value). 
+        
+        if self_dict["type"] == InferType.SEGMENTATION:
+            t = [
+            LoadImaged(keys="image", reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys="image"),
+            Orientationd(keys="image", axcodes="RAS"),
+            GetOriginalInformationd(keys=["image"], version_param='0'),
+            ImageNormalisationd(keys="image", planner_dict = data['planner_dict'], modality=self_dict["modality"], version_param='4'),
+            DivisiblePadd(keys=("image"), k=self_dict["transforms_parametrisation_dict"]["divisible_padding_factor"], mode='edge'),
+            ]
+            
+            t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+            return t
+
     if func_version_param == '-1':
 
         if self_dict["type"] == InferType.SEGMENTATION:
@@ -63,8 +118,8 @@ def run_get_inference_pre_transf(self_dict, data, func_version_param):
             DivisiblePadd(keys=("image"), k=self_dict["transforms_parametrisation_dict"]["divisible_padding_factor"]),
             ]
             
-        t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
-        return t
+            t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+            return t
         
     elif func_version_param == '1':
 

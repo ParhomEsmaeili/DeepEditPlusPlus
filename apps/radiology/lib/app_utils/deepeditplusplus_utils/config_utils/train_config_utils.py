@@ -65,7 +65,7 @@ def run_train_class_config(version_param, self_dict):
 
         task: TrainTask = TrainDeepEditPlusPlus(
             model_dir=output_dir,
-            network=self_dict['networks_dict']['base_network'],
+            network=self_dict['networks_dict']['train_network'],
             labels=self_dict['labels'],
             train_version_params = self_dict['train_version_params'],
             component_parametrisation_dict = component_parametrisation_dict,

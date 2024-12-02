@@ -12,7 +12,7 @@
 import json
 import logging
 import os
-import shutil
+
 from typing import Dict
 ############################
 from os.path import dirname as up
@@ -48,15 +48,13 @@ from monailabel.tasks.infer.bundle import BundleInferTask
 from monailabel.tasks.train.bundle import BundleTrainTask
 from monailabel.utils.others.class_utils import get_class_names
 from monailabel.utils.others.generic import get_bundle_models, strtobool
-from monailabel.utils.others.planner import HeuristicPlanner
+# from monailabel.utils.others.planner import HeuristicPlanner
 
 logger = logging.getLogger(__name__)
 
 ########### Additional modules for the inference and training scripts ############
 import shutil
 from monailabel.utils.others.generic import device_list, file_ext
-import nibabel as nib 
-import numpy as np
 import ast
 
 
@@ -70,6 +68,9 @@ from deepeditplusplus_test_utils.probabilistic_click_simulator import probabilis
 from deepeditplusplus_test_utils.inner_loop_simulator import probabilistic_inner_loop_runner
 from deepeditplusplus_test_utils.simulation_transf_parametrisation_config import run_generate_test_config_dict
 
+###### Imports for heuristic planner 
+from deepeditplusplus_heuristic_planner_utils.planner_inference import HeuristicPlanner
+from deepeditplusplus_heuristic_planner_utils.checking_heuristic_planner import HeuristicPlannerChecker
 
 
 
@@ -115,12 +116,12 @@ class MyApp(MONAILabelApp):
             print("")
             exit(-1)
 
-        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu
-        spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
-        target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
+        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu REMOVED FOR NOW.
+        # spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
+        # target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
         self.heuristic_planner = strtobool(conf.get("heuristic_planner", "false"))
-        self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
-
+        # self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
+        self.planner = HeuristicPlanner(version_param=conf.get("heuristic_planner_version"))
         # app models
         self.models: Dict[str, TaskConfig] = {}
         for n in models:
@@ -164,99 +165,12 @@ class MyApp(MONAILabelApp):
                 logger.info(f"+++ Adding Inferer:: {k} => {v}")
                 infers[k] = v
 
-        #################################################
-        # Bundle Models
-        #################################################
-        # if self.bundles:
-        #     for n, b in self.bundles.items():
-        #         i = BundleInferTask(b, self.conf)
-        #         logger.info(f"+++ Adding Bundle Inferer:: {n} => {i}")
-        #         infers[n] = i
-
-        #################################################
-        # Scribbles
-        #################################################
-        # if self.scribbles:
-        #     infers.update(
-        #         {
-        #             "Histogram+GraphCut": HistogramBasedGraphCut(
-        #                 intensity_range=(-300, 200, 0.0, 1.0, True),
-        #                 pix_dim=(2.5, 2.5, 5.0),
-        #                 lamda=1.0,
-        #                 sigma=0.1,
-        #                 num_bins=64,
-        #                 labels=task_config.labels,
-        #             ),
-        #             "GMM+GraphCut": GMMBasedGraphCut(
-        #                 intensity_range=(-300, 200, 0.0, 1.0, True),
-        #                 pix_dim=(2.5, 2.5, 5.0),
-        #                 lamda=5.0,
-        #                 sigma=0.5,
-        #                 num_mixtures=20,
-        #                 labels=task_config.labels,
-        #             ),
-        #         }
-        #     )
-
-        #################################################
-        # Pipeline based on existing infers
-        #################################################
-        # if infers.get("deepgrow_2d") and infers.get("deepgrow_3d"):
-        #     infers["deepgrow_pipeline"] = InferDeepgrowPipeline(
-        #         path=self.models["deepgrow_2d"].path,
-        #         network=self.models["deepgrow_2d"].network,
-        #         model_3d=infers["deepgrow_3d"],
-        #         description="Combines Clara Deepgrow 2D and 3D models",
-        #     )
-
-        #################################################
-        # # Pipeline based on existing infers for vertebra segmentation
-        # # Stages:
-        # # 1/ localization spine
-        # # 2/ localization vertebra
-        # # 3/ segmentation vertebra
-        # #################################################
-        # if (
-        #     infers.get("localization_spine")
-        #     and infers.get("localization_vertebra")
-        #     and infers.get("segmentation_vertebra")
-        # ):
-        #     infers["vertebra_pipeline"] = InferVertebraPipeline(
-        #         task_loc_spine=infers["localization_spine"],  # first stage
-        #         task_loc_vertebra=infers["localization_vertebra"],  # second stage
-        #         task_seg_vertebra=infers["segmentation_vertebra"],  # third stage
-        #         description="Combines three stage for vertebra segmentation",
-        #     )
         logger.info(infers)
         return infers
 
     def init_trainers(self) -> Dict[str, TrainTask]:
         trainers: Dict[str, TrainTask] = {}
-        # if strtobool(self.conf.get("skip_trainers", "false")):
-        #     return trainers
-        # #################################################
-        # # Models
-        # #################################################
-        # for n, task_config in self.models.items():
-        #     t = task_config.trainer()
-        #     if not t:
-        #         continue
-
-        #     logger.info(f"+++ Adding Trainer:: {n} => {t}")
-        #     trainers[n] = t
-
-        # #################################################
-        # # Bundle Models
-        # #################################################
-        # if self.bundles:
-        #     for n, b in self.bundles.items():
-        #         t = BundleTrainTask(b, self.conf)
-        #         if not t or not t.is_valid():
-        #             continue
-
-        #         logger.info(f"+++ Adding Bundle Trainer:: {n} => {t}")
-        #         trainers[n] = t
-
+        
         return trainers
 
     def init_strategies(self) -> Dict[str, Strategy]:
@@ -332,10 +246,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--studies", default = "BraTS2021_Training_Data_Split_True_proportion_0.8_channels_t2_resized_FLIRT_binarised") 
     parser.add_argument("--model", default="deepeditplusplus")
+    parser.add_argument("--heuristic_planner", default='False') #Whether the heuristic planner is being used or not
+    parser.add_argument("--heuristic_planner_version", default='1') #The version of the heuristic planner that is currently supported/used.
     parser.add_argument("--config_mode", default='infer')
     parser.add_argument("--infer_type", default="validation")#choices=("test", "validation")
     parser.add_argument('--infer_run', default='0')
-    parser.add_argument("--infer_run_name", nargs="+", default=["Editing", "Interactive", "10"], help="The subtask/mode which we want to execute")
+    parser.add_argument("--infer_run_name", nargs="+", default=['Autoseg'])#["Editing", "Interactive", "10"], help="The subtask/mode which we want to execute")
     #Possible options include: Autoseg, Interactive, Editing + Either init mode + number of edit iters.
     parser.add_argument("--infer_click_parametrised_bool", default=False) #The bool which contains the information about whether the click is parametrised or not.
     parser.add_argument("--infer_click_parametrisations", nargs="+", default=["None"]) #
@@ -350,8 +266,8 @@ def main():
     parser.add_argument("--simulation_type", default='probabilistic')
 
     #Set of parametrisations for selecting the appropriate configs:
-    parser.add_argument("--infer_config_version_param", default='1')
-    parser.add_argument("--network_version_param", default='0')
+    parser.add_argument("--infer_config_version_param", default='-1')
+    parser.add_argument("--network_version_param", default='-4')
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
     
@@ -362,13 +278,13 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='20241102_121843') 
+    parser.add_argument("--datetime", default='20241129_093732') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 
     
     #Adding the inference setup script parametrisations for the components:
-    parser.add_argument("--pre_transforms_version_param", default='2')
+    parser.add_argument("--pre_transforms_version_param", default='-2')
     parser.add_argument("--inverse_transforms_version_param", default='0')
     parser.add_argument("--post_transforms_version_param", default='0')
     parser.add_argument("--inferer_version_param", default='0')
@@ -409,7 +325,9 @@ def main():
         inference_click_parametrisation_string = "No Click Param"
         inference_click_parametrisations_dict = {"No Click Param":[]}
 
-
+    #Checking that all of the necessary checks have been made with respect to the heuristic planner:
+    HeuristicPlannerChecker(vars(args))()
+        
     ############### We introduce flexibility about which set of model weights to use for inference for configuration #####################
     
     if args.infer_type == "validation": 
@@ -418,6 +336,8 @@ def main():
                 "models": args.model,
                 "use_pretrained_model": "False",
                 "dataset_name": args.studies,
+                "heuristic_planner": args.heuristic_planner,
+                "heuristic_planner_version": args.heuristic_planner_version,
                 "config_mode": args.config_mode,
                 "target_spacing":args.target_spacing,
                 "spatial_size":args.spatial_size,
@@ -452,6 +372,8 @@ def main():
                 "models": args.model,
                 "use_pretrained_model": "False",
                 "dataset_name": args.studies,
+                "heuristic_planner": args.heuristic_planner,
+                "heuristic_planner_version": args.heuristic_planner_version,
                 "config_mode": args.config_mode,
                 "target_spacing":args.target_spacing,
                 "spatial_size":args.spatial_size,
@@ -486,6 +408,8 @@ def main():
                 "models": args.model,
                 "use_pretrained_model": "False",
                 "dataset_name": args.studies,
+                "heuristic_planner": args.heuristic_planner,
+                "heuristic_planner_version": args.heuristic_planner_version,
                 "config_mode": args.config_mode,
                 "checkpoint": args.checkpoint,
                 "datetime": args.datetime,
@@ -516,6 +440,8 @@ def main():
                 "models": args.model,
                 "use_pretrained_model": "False",
                 "dataset_name": args.studies,
+                "heuristic_planner": args.heuristic_planner,
+                "heuristic_planner_version": args.heuristic_planner_version,
                 "config_mode": args.config_mode,
                 "datetime": args.datetime,
                 "inference_set": 'imagesTs',
@@ -543,7 +469,14 @@ def main():
             }
 
 
+    #Extracting the path to the directory which all of the data, results, segmentations will be saved in.
     upper_level_dataset_dir = os.path.join(base_directory, 'datasets', args.studies) #
+
+    #Extracting the planner dict
+    if strtobool(args.heuristic_planner):
+        raise NotImplementedError
+    else:
+        planner_dict = dict() #Otherwise we can just pass an empty dictionary, no planner dict required. 
 
 
 
@@ -579,9 +512,9 @@ def main():
 
         request_templates = dict()
 
-        request_templates['Autoseg_template'] = {'model': args.model + '_autoseg', 'result_dtype': 'uint8','client_id': 'user-xyz', "restore_label_idx": False}
-        request_templates['Interactive_template'] = {'model': args.model + '_interactive_init', 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False}
-        request_templates['Editing_template'] = {'model': args.model, 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False}
+        request_templates['Autoseg_template'] = {'model': args.model + '_autoseg', 'result_dtype': 'uint8','client_id': 'user-xyz', "restore_label_idx": False, 'planner_dict': planner_dict}
+        request_templates['Interactive_template'] = {'model': args.model + '_interactive_init', 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False, 'planner_dict': planner_dict}
+        request_templates['Editing_template'] = {'model': args.model, 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False, 'planner_dict': planner_dict}
 
 
         ############### Loading the label configuration. This extracts the class-labels / integer codes dictionary. #########
@@ -639,7 +572,7 @@ def main():
 
                     probabilistic_inner_loop_runner(app, request_templates=request_templates, device=device, inference_run_configs=inference_config, click_simulation_class=click_simulation_class)
                 else:
-                    pass 
+                    raise NotImplementedError
                     #Requires deterministic implementation! 
         return
 
@@ -708,9 +641,9 @@ def main():
 
         request_templates = dict()
 
-        request_templates['Autoseg_template'] = {'model': args.model + '_autoseg', 'result_dtype': 'uint8','client_id': 'user-xyz', "restore_label_idx": False}
-        request_templates['Interactive_template'] = {'model': args.model + '_interactive_init', 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False}
-        request_templates['Editing_template'] = {'model': args.model, 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False}
+        request_templates['Autoseg_template'] = {'model': args.model + '_autoseg', 'result_dtype': 'uint8','client_id': 'user-xyz', "restore_label_idx": False, "planner_dict": planner_dict}
+        request_templates['Interactive_template'] = {'model': args.model + '_interactive_init', 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False, "planner_dict": planner_dict}
+        request_templates['Editing_template'] = {'model': args.model, 'result_dtype': 'uint8', 'client_id': 'user-xyz', "restore_label_idx": False, "planner_dict": planner_dict}
 
 
         ############### Loading the label configuration. This extracts the class-labels / integer codes dictionary. #########
@@ -769,7 +702,7 @@ def main():
 
                     probabilistic_inner_loop_runner(app, request_templates=request_templates, device=device, inference_run_configs=inference_config, click_simulation_class=click_simulation_class)
                 else:
-                    pass 
+                    raise NotImplementedError 
                     #Requires deterministic implementation!
         
         return

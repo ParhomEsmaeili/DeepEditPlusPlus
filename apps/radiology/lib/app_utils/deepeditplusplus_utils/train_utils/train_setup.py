@@ -132,9 +132,9 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.supported_optimizer  = ['0']
         self.supported_loss_func = ['-1', '0', '1', '2', '3', '4']
         self.supported_get_click_transform = ['1', '2']
-        self.supported_train_pre_transf = ['-1','1','2', '3']
+        self.supported_train_pre_transf = ['-6','-5', '-4', '-3','-2', '-1','1','2', '3']
         self.supported_train_post_transf = ['1', '2']
-        self.supported_val_pre_transf = ['-1', '1','2', '3']
+        self.supported_val_pre_transf = ['-3','-2', '-1', '1','2', '3']
         self.supported_val_post_transf = ['1']
         self.supported_train_inferer = ['0']
         self.supported_val_inferer = ['0']
@@ -164,7 +164,7 @@ class DeepEditPlusPlus(BasicTrainTask):
         
     
         super().__init__(model_dir, description, n_saved=n_saved, labels=labels, engine_version_param=self.engine_version_param, **kwargs)
-
+        
         # self.self_dict = dict(vars(self))
 
     def network(self, context: Context):
@@ -174,6 +174,13 @@ class DeepEditPlusPlus(BasicTrainTask):
         if self.optimizer_version_param == '0':
 
             return torch.optim.Adam(context.network.parameters(), lr=0.0001)
+
+    # def lr_scheduler_handler(self, context: Context):
+    #     # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(context.optimizer, mode="min")
+    #     # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
+
+    #     lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
+    #     return LrScheduleHandler(lr_scheduler, print_lr=True)
 
     def loss_function(self, context: Context):
         

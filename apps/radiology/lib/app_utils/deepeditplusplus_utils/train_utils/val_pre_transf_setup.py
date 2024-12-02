@@ -70,11 +70,62 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
     assert type(self_dict) == dict 
     assert type(func_version_param) == str 
 
-    supported_version_params = ['-1', '1', '2', '3']
+    supported_version_params = ['-3', '-2','-1', '1', '2', '3']
     
     assert func_version_param in supported_version_params, 'The version parameter was not supported for the get val pre-transform list composition'
 
-    if func_version_param == '-1':
+    # if func_version_param == '-4':
+    #     #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+    #     #Also modifies the padding so that it uses the edge value for padding (i.e. background value). 
+        
+    #     return [
+    #         LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
+    #         EnsureChannelFirstd(keys=("image", "label")),
+    #         # MappingLabelsInDatasetd(keys="label", original_label_names=self.original_dataset_labels, label_names = self._labels, label_mapping=self.label_mapping),
+    #         NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'),
+    #         Orientationd(keys=["image", "label"], axcodes="RAS"),
+    #         ImageNormalisationd(keys="image", modality = self_dict['modality'], version_param='4'),
+    #         DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor'], mode='reflection'),
+    #         # CenterSpatialCropd(keys=("image", "label"), roi_size=self_dict['spatial_size']),
+    #         ToTensord(keys=("image", "label")),
+    #         SelectItemsd(keys=("image", "label", "label_names")),
+    #     ]
+
+    if func_version_param == '-3':
+        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+        #Also modifies back the padding so that it uses zero value for padding.
+        
+        return [
+            LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys=("image", "label")),
+            # MappingLabelsInDatasetd(keys="label", original_label_names=self.original_dataset_labels, label_names = self._labels, label_mapping=self.label_mapping),
+            NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'),
+            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            ImageNormalisationd(keys="image", modality = self_dict['modality'], version_param='4'),
+            DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor']),
+            # CenterSpatialCropd(keys=("image", "label"), roi_size=self_dict['spatial_size']),
+            ToTensord(keys=("image", "label")),
+            SelectItemsd(keys=("image", "label", "label_names")),
+        ]
+
+    if func_version_param == '-2':
+        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
+        #Also modifies the padding so that it uses the edge value for padding (i.e. background value). 
+        
+        return [
+            LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys=("image", "label")),
+            # MappingLabelsInDatasetd(keys="label", original_label_names=self.original_dataset_labels, label_names = self._labels, label_mapping=self.label_mapping),
+            NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'),
+            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            ImageNormalisationd(keys="image", modality = self_dict['modality'], version_param='4'),
+            DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor'], mode='edge'),
+            # CenterSpatialCropd(keys=("image", "label"), roi_size=self_dict['spatial_size']),
+            ToTensord(keys=("image", "label")),
+            SelectItemsd(keys=("image", "label", "label_names")),
+        ]
+
+    elif func_version_param == '-1':
         return [
             LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
             EnsureChannelFirstd(keys=("image", "label")),

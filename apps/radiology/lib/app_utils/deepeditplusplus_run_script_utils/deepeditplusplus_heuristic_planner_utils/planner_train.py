@@ -58,6 +58,8 @@ class HeuristicPlanner:
 
             # spacings = []
             # img_sizes = []
+
+            raise NotImplementedError('Possibly need to modify the extraction method so that it only extracts from the foreground (i.e. non-background voxels) see <https://github.com/MIC-DKFZ/nnUNet/blob/ac79a612ae696af224169cbefde7519354782e64/documentation/explanation_normalization.md?plain=1#L25>')
             pix_img_max = []
             pix_img_min = []
             pix_img_upper_bound = []

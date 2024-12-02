@@ -27,7 +27,8 @@ distance_transform_cdt, _ = optional_import("scipy.ndimage.morphology", name="di
 
 Transform which propagates the prior segmentations as additional input channels (after the image, and N classes of point guidance tensors):
 
-Version 1: The DeepEdit++ v1.1 implementation. 
+Version 1: The DeepEdit++ v1.1 implementation, where existing segmentations are split (discrete), and for instances where segmentations did not already exist it generates
+randomised tensors. 
 Version 2: The DeepEdit++ v1.1 implementation in TORCH. 
 '''
 
@@ -44,6 +45,8 @@ class AddSegmentationInputChannelsd(Randomizable, MapTransform):
 
     Previous seg flag: Flag which asserts whether a previous segmentation exists to propagate.
     version_param: The parameter which controls which version of this transform we are using. 
+
+    Image is assumed to be in CHWD format (channel first format). 
     '''
     def __init__(self, keys: KeysCollection, 
                 allow_missing_keys: bool = False, 
@@ -66,11 +69,11 @@ class AddSegmentationInputChannelsd(Randomizable, MapTransform):
         assert self.version_param in self.supported_versions
 
     def randomize(self, image):
-        """
-        Random generation of the initialisation segmentations. 
-        """
-        
+
         if self.version_param == '1':
+            """
+            Random generation of the initialisation segmentations. 
+            """
             random_array = self.R.choice(list(self.label_names.values()), image.shape[1:])
             # print(np.unique(random_array, return_counts=True))
             return random_array
@@ -81,14 +84,15 @@ class AddSegmentationInputChannelsd(Randomizable, MapTransform):
     def _get_mask(self, image, previous_seg):
         '''
         get the mask according to the previous_Segmentation_flag, if in the Editing mode then it is the previous segmentation, if it is the other two modes 
-        (AutoSeg/Interactive Init) then it should be randomly generated..
+        (AutoSeg/Interactive Init) then it will not be an existing segmentation.
 
-        previous segmentation is assumed to be a single tensor or None, not k-channels separated by class, for Editing this function splits the input image. 
+        Previous segmentation is assumed to be a single tensor or None, not one-hot encoded. For Editing this function splits the existing segmentation, 
         we assume that the tensor has discrete values which represent the integer codes for the classes (discrete) 
         
-        (Current assumption is that the config label-integer codes are pre-normalised so that they go from values 0 - k-1).
+        Assumption is that the label-integer codes are pre-normalised so that they go from values 0 - k-1 (k = num_classes).
         
-        Similarly, the previous segmentation image is imported with values of 0 - k-1.
+        Similarly, the previous segmentation image is assumed to be imported with values of 0 - k-1 (i.e. these values should also be normalised), whether that be for
+        training or for inference.
 
         '''
         
@@ -137,8 +141,6 @@ class AddSegmentationInputChannelsd(Randomizable, MapTransform):
                                 previous_seg = d[self.previous_seg_name].squeeze()
                             elif len(d[self.previous_seg_name].shape) == n_dims: #If the previous segmentation is already an n * D tensor where n = spatial dimensions of image
                                 previous_seg = d[self.previous_seg_name]
-                            #TODO: Delete this temporary check.    
-                            #nib.save(nib.Nifti1Image(np.array(previous_seg), None), os.path.join('/home/parhomesmaeili/TrainingInnerLoopPrediction/ActivatedPred.nii.gz'))
                         else:
                             previous_seg = None
 

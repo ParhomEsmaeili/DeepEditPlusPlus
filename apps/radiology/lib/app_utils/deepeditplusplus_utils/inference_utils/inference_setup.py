@@ -103,7 +103,7 @@ class DeepEditPlusPlus(BasicInferTask):
         self.post_transf_version_param = self.version_params['post_transforms_version_param'] 
 
 
-        self.supported_pre_transform_versions = ['-1', '1','2']
+        self.supported_pre_transform_versions = ['-3', '-2', '-1', '1','2']
         self.supported_inferer_versions = ['0']
         self.supported_inverse_transform_versions = ['0']
         self.supported_post_transform_versions = ['0']

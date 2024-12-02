@@ -70,10 +70,11 @@ class DeepEditPlusPlus(TaskConfig):
         '''
         Config file which sets up the train and inference setup scripts. 
 
-        Inputs: Name of the ?
+        Inputs: 
+        Name: Name of the model?
         Model directory: The upper most level model directory which will contain every folder containing a training run's sets of model parameters/information.
         Conf: The configuration dictionary used to configure the train/inference setup scripts/contains all of the information used for these scripts.
-        Planner: The heuristic planner used to extract information from.
+        Planner: The heuristic planner used to extract information from the data and the machine specs.
 
         '''
 

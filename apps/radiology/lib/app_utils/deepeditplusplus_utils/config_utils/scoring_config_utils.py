@@ -29,11 +29,11 @@ def run_scoring_method(version_param, networks_dict, infer_class, self_dict):
         if self_dict['epistemic_enabled']:
             methods[f"{self_dict['name']}_epistemic"] = EpistemicScoring(
                 model=self_dict['path'],
-                network=networks_dict['dropout_network'],
+                network=networks_dict['epistemic_network'],
                 transforms=infer_class(
                     type=InferType.SEGMENTATION,
                     path=self_dict['path'],
-                    network=self_dict['base_network'],
+                    network=self_dict['infer_network'],
                     labels=self_dict['labels'],
                     preload=strtobool(self_dict['conf'].get("preload", "false")),
                     spatial_size=self_dict['spatial_size'],

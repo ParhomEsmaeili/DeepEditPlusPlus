@@ -12,7 +12,6 @@
 import json
 import logging
 import os
-import shutil
 from typing import Dict
 import datetime 
 ############################
@@ -48,39 +47,21 @@ from monailabel.tasks.infer.bundle import BundleInferTask
 from monailabel.tasks.train.bundle import BundleTrainTask
 from monailabel.utils.others.class_utils import get_class_names
 from monailabel.utils.others.generic import get_bundle_models, strtobool
-from monailabel.utils.others.planner import HeuristicPlanner
+# from monailabel.utils.others.planner import HeuristicPlanner
 
 logger = logging.getLogger(__name__)
 
 ########### Additional modules for the inference and training scripts ############
-import shutil
 from monailabel.utils.others.generic import device_list, file_ext
-import nibabel as nib 
-import numpy as np
 import ast
 
+########## Imports for heuristicplanner checker
 
+deepeditpp_runscript_utils_dir = os.path.join(up(os.path.abspath(__file__)), 'lib', 'app_utils', 'deepeditplusplus_run_script_utils')
+sys.path.append(deepeditpp_runscript_utils_dir)
 
-########## Additional modules and packages for the inference click simulation
-# from monai.transforms import (
-#     Compose,
-#     LoadImaged,
-#     EnsureChannelFirstd,
-#     Orientationd,
-#     ToNumpyd,
-#     Resized,
-#     DivisiblePadd
-# ) 
-# from monailabel.deepeditPlusPlus.transforms import (
-#     MappingLabelsInDatasetd,
-#     NormalizeLabelsInDatasetd,
-#     FindAllValidSlicesMissingLabelsd,
-#     AddInitialSeedPointMissingLabelsd,
-#     FindDiscrepancyRegionsDeepEditd,
-#     AddRandomGuidanceDeepEditd
-# )
-
-from monailabel.transform.writer import Writer 
+from deepeditplusplus_heuristic_planner_utils.planner_train import HeuristicPlanner
+from deepeditplusplus_heuristic_planner_utils.checking_heuristic_planner import HeuristicPlannerChecker
 
 class MyApp(MONAILabelApp):
     def __init__(self, app_dir, studies, conf):
@@ -124,11 +105,12 @@ class MyApp(MONAILabelApp):
             print("")
             exit(-1)
 
-        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu
-        spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
-        target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
+        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu REMOVED FOR NOW
+        # spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
+        # target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
         self.heuristic_planner = strtobool(conf.get("heuristic_planner", "false"))
-        self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
+        # self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
+        self.planner = HeuristicPlanner(version_param=conf.get("heuristic_planner_version"))
 
         # app models
         self.models: Dict[str, TaskConfig] = {}
@@ -163,68 +145,6 @@ class MyApp(MONAILabelApp):
     def init_infers(self) -> Dict[str, InferTask]:
         infers: Dict[str, InferTask] = {}
 
-        #################################################
-        # Models
-        #################################################
-        # for n, task_config in self.models.items():
-        #     c = task_config.infer()
-        #     c = c if isinstance(c, dict) else {n: c}
-        #     for k, v in c.items():
-        #         logger.info(f"+++ Adding Inferer:: {k} => {v}")
-        #         infers[k] = v
-
-        #################################################
-        # Bundle Models
-        #################################################
-        # if self.bundles:
-        #     for n, b in self.bundles.items():
-        #         i = BundleInferTask(b, self.conf)
-        #         logger.info(f"+++ Adding Bundle Inferer:: {n} => {i}")
-        #         infers[n] = i
-
-        #################################################
-        # Scribbles
-        #################################################
-        # if self.scribbles:
-        #     infers.update(
-        #         {
-        #             "Histogram+GraphCut": HistogramBasedGraphCut(
-        #                 intensity_range=(-300, 200, 0.0, 1.0, True),
-        #                 pix_dim=(2.5, 2.5, 5.0),
-        #                 lamda=1.0,
-        #                 sigma=0.1,
-        #                 num_bins=64,
-        #                 labels=task_config.labels,
-        #             ),
-        #             "GMM+GraphCut": GMMBasedGraphCut(
-        #                 intensity_range=(-300, 200, 0.0, 1.0, True),
-        #                 pix_dim=(2.5, 2.5, 5.0),
-        #                 lamda=5.0,
-        #                 sigma=0.5,
-        #                 num_mixtures=20,
-        #                 labels=task_config.labels,
-        #             ),
-        #         }
-        #     )
-
-        #################################################
-        # # Pipeline based on existing infers for vertebra segmentation
-        # # Stages:
-        # # 1/ localization spine
-        # # 2/ localization vertebra
-        # # 3/ segmentation vertebra
-        # #################################################
-        # if (
-        #     infers.get("localization_spine")
-        #     and infers.get("localization_vertebra")
-        #     and infers.get("segmentation_vertebra")
-        # ):
-        #     infers["vertebra_pipeline"] = InferVertebraPipeline(
-        #         task_loc_spine=infers["localization_spine"],  # first stage
-        #         task_loc_vertebra=infers["localization_vertebra"],  # second stage
-        #         task_seg_vertebra=infers["segmentation_vertebra"],  # third stage
-        #         description="Combines three stage for vertebra segmentation",
-        #     )
         logger.info(infers)
         return infers
 
@@ -243,17 +163,6 @@ class MyApp(MONAILabelApp):
             logger.info(f"+++ Adding Trainer:: {n} => {t}")
             trainers[n] = t
 
-        #################################################
-        # Bundle Models
-        #################################################
-        # if self.bundles:
-        #     for n, b in self.bundles.items():
-        #         t = BundleTrainTask(b, self.conf)
-        #         if not t or not t.is_valid():
-        #             continue
-
-        #         logger.info(f"+++ Adding Bundle Trainer:: {n} => {t}")
-        #         trainers[n] = t
 
         return trainers
 
@@ -321,6 +230,8 @@ def main():
     #Arguments which configure some of the actual parameters used for training and dataset. 
     parser.add_argument("--studies", default = "BraTS2021_Training_Data_Split_True_proportion_0.8_channels_t2_resized_FLIRT_binarised") 
     parser.add_argument("--datetime", default = None)
+    parser.add_argument("--heuristic_planner", default="False")
+    parser.add_argument("--heuristic_planner_version", default='1')
     parser.add_argument("--model", default="deepeditplusplus")
     parser.add_argument("--config_mode", default="train")# choices=("train"))
     parser.add_argument("--max_epoch", default="300")
@@ -344,9 +255,9 @@ def main():
     parser.add_argument("--optimizer_version_param", default='0')
     parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
-    parser.add_argument("--train_pre_transforms_version_param", default='-1')
+    parser.add_argument("--train_pre_transforms_version_param", default='-5')
     parser.add_argument("--train_post_transforms_version_param", default='2')
-    parser.add_argument("--val_pre_transforms_version_param", default='-1')
+    parser.add_argument("--val_pre_transforms_version_param", default='-2')
     parser.add_argument("--val_post_transforms_version_param", default='1')
     parser.add_argument("--train_inferer_version_param", default='0')
     parser.add_argument("--val_inferer_version_param", default='0')
@@ -358,7 +269,7 @@ def main():
     parser.add_argument("--engine_version_param", default='0')
 
     parser.add_argument("--train_config_version_param", default='1')
-    parser.add_argument("--network_version_param", default='-1') 
+    parser.add_argument("--network_version_param", default='-4') 
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
 
@@ -385,6 +296,10 @@ def main():
     else: 
         input_datetime = args.datetime
 
+
+    #Checking that all of the necessary checks have been made with respect to the heuristic planner:
+    HeuristicPlannerChecker(vars(args))()
+
     ############### Adding flexibility for selecting which set of model weights to use #####################
     
 
@@ -392,7 +307,8 @@ def main():
         "models": args.model,
         "use_pretrained_model": "False",
         "datetime":input_datetime,
-
+        "heuristic_planner":args.heuristic_planner,
+        "heuristic_planner_version": args.heuristic_planner_version,
 
         "dataset_name": args.studies,
         "max_epochs": args.max_epoch,
@@ -468,6 +384,11 @@ def main():
         pair_dict["label"] = os.path.join(dataset_dir_outer, pair_dict["label"][2:]) + '.nii.gz'
 
     #train_dataset = json.loads()
+    if strtobool(args.heuristic_planner):
+        planner_dict = vars(app.planner)
+    else:
+        planner_dict = dict()
+
     app.train(
         request={
             "model": args.model,
@@ -488,7 +409,8 @@ def main():
             "device": device_name, #
             "local_rank": 0,
             "train_ds":training_dataset,
-            "val_ds":val_dataset 
+            "val_ds":val_dataset,
+            "planner_dict": planner_dict
         },
     )
 

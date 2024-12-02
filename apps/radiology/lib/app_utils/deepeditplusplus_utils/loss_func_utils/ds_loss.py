@@ -26,7 +26,7 @@ class DeepSupervisionLoss(_Loss):
     supervised networks. The final loss is computed as the sum of weighted losses for each of deep supervision levels.
     """
 
-    def __init__(self, loss: _Loss, weight_mode: str = "exp", weights: list[float] | None = None) -> None:
+    def __init__(self, loss: _Loss, weight_mode: str = "exp_norm", weights: list[float] | None = None) -> None:
         """
         Args:
             loss: main loss instance, e.g DiceLoss().
@@ -55,6 +55,9 @@ class DeepSupervisionLoss(_Loss):
             weights = [1.0] * levels
         elif self.weight_mode == "exp":
             weights = [max(0.5**l, 0.0625) for l in range(levels)]
+        elif self.weight_mode == "exp_norm":
+            weights = [max(0.5**l, 0.0625) for l in range(levels)]
+            weights = [i/sum(weights) for i in weights]
         elif self.weight_mode == "two":
             weights = [1.0 if l == 0 else 0.5 for l in range(levels)]
         else:
@@ -62,7 +65,7 @@ class DeepSupervisionLoss(_Loss):
 
         #Normalises the weights so that they sum to one:
     
-        return [i/sum(weights) for i in weights]
+        return weights
 
     def get_loss(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -81,7 +84,8 @@ class DeepSupervisionLoss(_Loss):
             for l in range(len(input)):
                 loss += weights[l] * self.get_loss(input[l].float(), target)
             return loss
-        if isinstance(input, torch.Tensor) and len(input.shape) != len(target.shape): #In this scenario it is presented in BFNHWD format where F = number of feature maps.
+        if isinstance(input, torch.Tensor) and len(input.shape) != len(target.shape): 
+            #In this scenario it is presented in BFNHWD format where F = number of feature maps.
             weights = self.get_weights(levels=input.shape[1])
             loss = torch.tensor(0, dtype=torch.float, device=target.device)
             unbound_input = input.unbind(dim=1) #We unbind dim=1
