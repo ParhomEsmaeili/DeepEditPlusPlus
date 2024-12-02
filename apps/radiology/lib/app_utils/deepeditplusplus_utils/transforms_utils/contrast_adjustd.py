@@ -106,10 +106,10 @@ class RandContrastAdjustd(Randomizable, MapTransform):
                     d[key] += mean 
 
                     if self.preserve_range:
-                        if type(d[key]) == torch.Tensor:
-                            d[key].clamp(min=minm, max=maxm)
+                        if type(d[key]) == torch.Tensor or type(d[key]) == MetaTensor:
+                            d[key].clamp_(min=minm, max=maxm)
                         elif type(d[key]) == np.ndarray:
-                            d[key].clip(min=minm, max=maxm)
+                            np.clip(d[key], a_min=minm, a_max=maxm, out=d[key])
                 else:
                     logger.info(f'Not supported for key: {key}')
             return d
@@ -149,8 +149,8 @@ class RandContrastAdjustd(Randomizable, MapTransform):
 
                     elif foreground_info_dict['foreground_stats_only']:
 
-                        raise NotImplementedError('This implementation is still not complete!')
-                        
+                        # raise NotImplementedError('This implementation is still not complete!')
+
                         #In this case, we only use the foreground voxels for extracting the mean/min/max used so that the foreground voxels are augmented more strongly.
                         #Otherwise, the mean will be dragged down by the background voxels, therefore eliminating the effect of the contrasting.
 
@@ -167,7 +167,7 @@ class RandContrastAdjustd(Randomizable, MapTransform):
 
                         #We only use the foreground voxel values for the mean. If we had used it for the min/max then it would clamp the background voxels in an 
                         #extremely atypical manner (i.e. the background value would not be background anymore..., it would be the minimum across foreground, which isn't
-                        #how it should work, logically.)
+                        #how it should work..)
 
                         if self.preserve_range:
                             minm = d[key].min()
@@ -178,10 +178,10 @@ class RandContrastAdjustd(Randomizable, MapTransform):
                         d[key] += mean 
 
                         if self.preserve_range:
-                            if type(d[key]) == torch.Tensor:
-                                d[key].clamp(min=minm, max=maxm)
+                            if type(d[key]) == torch.Tensor or type(d[key]) == MetaTensor:
+                                d[key].clamp_(min=minm, max=maxm)
                             elif type(d[key]) == np.ndarray:
-                                d[key].clip(min=minm, max=maxm)
+                                np.clip(d[key], a_min=minm, a_max=maxm, out=d[key])
 
                 else:
                     logger.info(f'Not supported for key: {key}')
