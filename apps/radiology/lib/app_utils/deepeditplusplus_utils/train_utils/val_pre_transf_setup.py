@@ -76,7 +76,7 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
 
     # if func_version_param == '-4':
     #     #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
-    #     #Also modifies the padding so that it uses the edge value for padding (i.e. background value). 
+    #     #Also modifies the padding so that it uses the reflection for padding. 
         
     #     return [
     #         LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
@@ -92,8 +92,8 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
     #     ]
 
     if func_version_param == '-3':
-        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
-        #Also modifies back the padding so that it uses zero value for padding.
+        #Modification to the normalisation strategy to use pure z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities prior to
+        # z score normalisation. Also modifies back the padding so that it uses zero value for padding (compared to version -2).
         
         return [
             LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),

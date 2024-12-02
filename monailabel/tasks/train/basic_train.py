@@ -263,14 +263,14 @@ class BasicTrainTask(TrainTask):
     def loss_function(self, context: Context):
         pass
 
-    # @abstractmethod
+    @abstractmethod
     def lr_scheduler_handler(self, context: Context):
         # # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(context.optimizer, mode="min")
         # # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
 
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
-        return LrScheduleHandler(lr_scheduler, print_lr=True)
-        # pass
+        # lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
+        # return LrScheduleHandler(lr_scheduler, print_lr=True)
+        pass
 
     def _dataset(self, context, datalist, is_train, replace_rate=0.25):
         if context.multi_gpu:

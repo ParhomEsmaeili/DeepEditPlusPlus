@@ -73,8 +73,8 @@ def run_get_inference_pre_transf(self_dict, data, func_version_param):
     #         return t
 
     if func_version_param == '-3':
-        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities.
-        #Also modifies the padding back so that it uses zeroes for padding. 
+        #Modification to the normalisation strategy to use z-score for non x-ray, and use the heuristic planner vals for clipping the x-ray based modalities first.
+        #Also modifies the padding back so that it uses zeroes for padding (compared to version -2). 
         
         if self_dict["type"] == InferType.SEGMENTATION:
             t = [

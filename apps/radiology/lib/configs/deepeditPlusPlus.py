@@ -90,6 +90,7 @@ class DeepEditPlusPlus(TaskConfig):
             train_version_params = dict() 
 
             train_version_params["optimizer_version_param"] = self.conf.get("optimizer_version_param")
+            train_version_params["lr_scheduler_version_param"] = self.conf.get("lr_scheduler_version_param")
             train_version_params["loss_func_version_param"] = self.conf.get("loss_func_version_param")
             train_version_params["get_click_version_param"] = self.conf.get("get_click_version_param")
             train_version_params["train_pre_transforms_version_param"] = self.conf.get("train_pre_transforms_version_param")

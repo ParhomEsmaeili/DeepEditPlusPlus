@@ -6,25 +6,8 @@ import logging
 
 import torch
 import json 
-#from lib.transforms.transforms import NormalizeLabelsInDatasetd
-# from monailabel.deepeditPlusPlus.interaction import Interaction
-# from monailabel.deepeditPlusPlus.transforms import (
-#     AddGuidanceSignalDeepEditd,
-#     AddInitialSeedPointMissingLabelsd,
-#     AddRandomGuidanceDeepEditd,
-#     FindAllValidSlicesMissingLabelsd,
-#     FindDiscrepancyRegionsDeepEditd,
-#     SplitPredsLabeld,
-#     NormalizeLabelsInDatasetd,
-#     AddSegmentationInputChannels,
-#     #ExtractChannelsd,
-#     MappingLabelsInDatasetd,
-#     ExtractMeta,
-#     IntensityCorrection,
-# )
 
-
-from monai.handlers import MeanDice, from_engine
+# from monai.handlers import MeanDice, from_engine
 from monai.inferers import SimpleInferer
 # from monai.losses import DiceCELoss
 from monai.transforms import (
@@ -71,6 +54,14 @@ from transforms_utils.extract_mapsd import ExtractMapsd
 
 from inner_loop_utils.inner_loop_setup import Interaction
 
+app_dir = up(up(up(up(os.path.abspath(__file__)))))
+
+from monai_handlers import (
+    LrScheduleHandler,
+    MeanDice,
+    from_engine
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,7 +77,7 @@ class DeepEditPlusPlus(BasicTrainTask):
         train_version_params,
         component_parametrisation_dict,
         #extract_channels,
-        description="Train DeepEdit model for 3D Images",
+        description="Train DeepEdit++ model for 3D Images",
         number_intensity_ch=1,
         debug_mode=False,
         **kwargs,
@@ -94,8 +85,6 @@ class DeepEditPlusPlus(BasicTrainTask):
         self._network = network
         self.modality = modality
         self.external_validation_dir = external_validation_dir
-        #self.cuda_device = cuda_device
-        #self.extract_channels = extract_channels
 
         #Extracting the fixed variables. 
         
@@ -113,7 +102,8 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.version_params = train_version_params 
         #####################################################################
 
-        self.optimizer_version_param = self.version_params["optimizer_version_param"] 
+        self.optimizer_version_param = self.version_params["optimizer_version_param"]
+        self.lr_scheduler_version_param = self.version_params["lr_scheduler_version_param"] 
         self.loss_func_version_param = self.version_params["loss_func_version_param"]
         self.get_click_version_param = self.version_params["get_click_version_param"] 
         self.train_pre_transforms_version_param = self.version_params["train_pre_transforms_version_param"] 
@@ -130,6 +120,7 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.engine_version_param = self.version_params["engine_version_param"]
 
         self.supported_optimizer  = ['0']
+        self.supported_lr_scheduler = ['0']
         self.supported_loss_func = ['-1', '0', '1', '2', '3', '4']
         self.supported_get_click_transform = ['1', '2']
         self.supported_train_pre_transf = ['-6','-5', '-4', '-3','-2', '-1','1','2', '3']
@@ -145,7 +136,8 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.supported_train_handlers = ['0'] 
         self.supported_engine_versions = ['0', '1']
 
-        assert self.optimizer_version_param in self.supported_optimizer  
+        assert self.optimizer_version_param in self.supported_optimizer 
+        assert self.lr_scheduler_version_param in self.supported_lr_scheduler 
         assert self.loss_func_version_param in self.supported_loss_func 
         assert self.get_click_version_param in self.supported_get_click_transform  
         assert self.train_pre_transforms_version_param in self.supported_train_pre_transf  
@@ -175,12 +167,13 @@ class DeepEditPlusPlus(BasicTrainTask):
 
             return torch.optim.Adam(context.network.parameters(), lr=0.0001)
 
-    # def lr_scheduler_handler(self, context: Context):
-    #     # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(context.optimizer, mode="min")
-    #     # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
+    def lr_scheduler_handler(self, context: Context):
+        if self.lr_scheduler_version_param == '0':
+            # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(context.optimizer, mode="min")
+            # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
 
-    #     lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
-    #     return LrScheduleHandler(lr_scheduler, print_lr=True)
+            lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
+            return LrScheduleHandler(lr_scheduler, print_lr=True)
 
     def loss_function(self, context: Context):
         

@@ -27,7 +27,7 @@ def run_get_network_configs(version_param, self_dict):
        Outputs: A dict containing the networks (this could be just the standard network, but also the network with dropout: this is for basic uncertainty-quantif
        in A.L) 
     '''
-    supported_version_params = ['-4-', '-3', '-2','-1', '0', '1'] 
+    supported_version_params = ['-4', '-3', '-2','-1', '0', '1'] 
 
     assert version_param in supported_version_params 
 
