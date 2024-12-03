@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 version 1: Standard approach as used by nnu-net for simulation of contrast adjustment, applies it to the entirety of the image.
 version 2: Approach which is standardised by the values in the foreground prior to contrast adjustment, so that the foreground values remain close to their 
 original distribution... Unlike the gamma transform equivalent, this should not be that catastrophic because the mean is just a flat bias that is being applied anyways.
-Unlike the non-linear transform performed on a [0,1] normalised input (gamma contrast).
+Unlike the non-linear transform performed on a [0,1] normalised input (gamma contrast). BUT, it will not really clamp the voxel values within the foreground as much.
 
 '''
 
@@ -162,13 +162,20 @@ class RandContrastAdjustd(Randomizable, MapTransform):
                         if type(foreground_info_dict['foreground_region']) != torch.Tensor:
                             raise TypeError('The foreground region mask must be a torch tensor')
                             
+                        if foreground_info_dict['foreground_stats_only']:
+                            if foreground_mask.sum() != torch.nonzero(foreground_mask).shape[0]:
+                                raise ValueError('The foreground mask did not sum to the quantity of foreground voxels')
+                        else:
+                            if int(foreground_mask.sum()) != torch.numel(foreground_mask):
+                                raise ValueError('The foreground mask should be equal to the number of image voxels if foreground stats only = False')
+                        
                         foreground_voxel_vals = torch.masked_select(img, foreground_info_dict['foreground_region'].bool())
 
                         mean = foreground_voxel_vals.mean()
 
                         #We only use the foreground voxel values for the mean. If we had used it for the min/max then it would clamp the background voxels in an 
                         #extremely atypical manner (i.e. the background value would not be background anymore..., it would be the minimum across foreground, which isn't
-                        #how it should work..)
+                        #how it should work at all..)
 
                         if self.preserve_range:
                             minm = d[key].min()

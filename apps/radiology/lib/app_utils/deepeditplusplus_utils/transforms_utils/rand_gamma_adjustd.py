@@ -114,19 +114,19 @@ class RandGammaAdjustnnUNetd(Randomizable, MapTransform):
 
         if self.version_param == '1': 
             self.adjust_contrast_no_invert = AdjustContrast(
-                gamma=0, invert_image=False, retain_stats=self.retain_stats
+                gamma=1, invert_image=False, retain_stats=self.retain_stats
                 )
 
             self.adjust_contrast_with_invert = AdjustContrast(
-                gamma=0, invert_image=True, retain_stats=self.retain_stats
+                gamma=1, invert_image=True, retain_stats=self.retain_stats
                 )
             
         elif self.version_param == '2':
             self.adjust_contrast_no_invert = MaskedAdjustContrast(
-                gamma=0, invert_image=False, retain_stats=self.retain_stats, version_param='1'
+                gamma=1, invert_image=False, retain_stats=self.retain_stats, version_param='1'
             )
             self.adjust_contrast_with_invert = MaskedAdjustContrast(
-                gamma=0, invert_image=True, retain_stats=self.retain_stats, version_param='1'
+                gamma=1, invert_image=True, retain_stats=self.retain_stats, version_param='1'
             )
 
 
