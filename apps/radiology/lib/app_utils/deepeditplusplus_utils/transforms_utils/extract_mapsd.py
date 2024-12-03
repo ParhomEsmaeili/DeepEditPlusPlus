@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 class ExtractMapsd(MapTransform):
     """
-    Extracts 
+    Extracts fully connected layer's feature map from a deep supervision stack (i.e. the output). Intended for use where validation is being performed. 
+    
     Version param=0: For extracting from a deep supervision FNHWD tensor (the batch is already decollated), the feature maps which correspond to the output of the network. 
     (Not the intermediate feature maps, this is contained in the first index of the feature map channel wise axis.)
 

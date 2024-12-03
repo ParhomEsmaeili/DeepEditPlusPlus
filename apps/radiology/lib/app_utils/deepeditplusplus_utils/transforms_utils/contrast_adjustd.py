@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 '''
 version 1: Standard approach as used by nnu-net for simulation of contrast adjustment, applies it to the entirety of the image.
-version 2: Approach which is normalised by the values in the foreground, so that the foreground values remain close to their original distribution...
+version 2: Approach which is standardised by the values in the foreground prior to contrast adjustment, so that the foreground values remain close to their 
+original distribution... Unlike the gamma transform equivalent, this should not be that catastrophic because the mean is just a flat bias that is being applied anyways.
+Unlike the non-linear transform performed on a [0,1] normalised input (gamma contrast).
+
 '''
 
 class RandContrastAdjustd(Randomizable, MapTransform):
@@ -148,8 +151,6 @@ class RandContrastAdjustd(Randomizable, MapTransform):
                                 d[key].clip(min=minm, max=maxm)
 
                     elif foreground_info_dict['foreground_stats_only']:
-
-                        # raise NotImplementedError('This implementation is still not complete!')
 
                         #In this case, we only use the foreground voxels for extracting the mean/min/max used so that the foreground voxels are augmented more strongly.
                         #Otherwise, the mean will be dragged down by the background voxels, therefore eliminating the effect of the contrasting.

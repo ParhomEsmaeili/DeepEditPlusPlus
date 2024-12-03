@@ -74,20 +74,21 @@ def run_get_train_pre_transf(self_dict, context, func_version_param):
         #For this version we inject most of the modifications except for the image degradation and zooming/affine, still has a bug.. We also add back the rand shift intensity, it appears the
         #contrast adjustments aren't configured well without a patch based method.... (too much background?).
 
+        #We also correct the parametrisation on the gamma contrast augmentation.
+
         t = [
             LoadImaged(keys=("image", "label"), reader="ITKReader", image_only=False),
             EnsureChannelFirstd(keys=("image", "label")),
             NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'), 
             Orientationd(keys=["image", "label"], axcodes="RAS"),
-            ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='5'),
-            #intensity augmentation to use a mask such that the augmentations are only performed using the foreground (denoted by the mask!)   
-            RandGaussianNoisennUNetd(keys="image", prob= 0.1, mean=0.0, var_bound = (0, 0.1), sample_var= True, version_param = '2'),
+            ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='4'),  
+            RandGaussianNoisennUNetd(keys="image", prob= 0.1, mean=0.0, var_bound = (0, 0.1), sample_var= True, version_param = '1'),
             UniformRandGaussianSmoothd(keys="image", kernel_bounds=(0.5, 1.5), prob = 0.1, version_param = '1'),
             RandBrightnessd(keys="image", prob= 0.15, bounds = (0.7, 1.3), version_param='2'),
-            RandContrastAdjustd(keys="image", prob= 0.15, bounds= (0.65, 1.5), preserve_range = True, version_param = '2'),
+            RandContrastAdjustd(keys="image", prob= 0.15, bounds= (0.65, 1.5), preserve_range = True, version_param = '1'),
             RandShiftIntensityd(keys="image", offsets=0.1, prob=0.5),
-            RandGammaAdjustnnUNetd(keys="image", gamma_no_inv = (0.7, 1.5), gamma_with_inv = (0.7, 1.5), no_inv_gamma_prob = 0.1, with_inv_gamma_prob = 0.3, retain_stats = True, version_param = '2'),
-            #Here we will pad the image to fit the requirements of the backbone architecture. Zero padding is used.
+            RandGammaAdjustnnUNetd(keys="image", gamma_no_inv = (0.7, 1.5), gamma_with_inv = (0.7, 1.5), no_inv_gamma_prob = 0.3, with_inv_gamma_prob = 0.1, retain_stats = True, version_param = '2'),
+            #Here we will pad the image to fit the requirements of the backbone architecture, .
             DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor']),
             RandFlipd(keys=("image", "label"), spatial_axis=[0], prob=0.10),
             RandFlipd(keys=("image", "label"), spatial_axis=[1], prob=0.10),
