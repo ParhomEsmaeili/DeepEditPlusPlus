@@ -12,7 +12,8 @@
 import json
 import logging
 import os
-
+import argparse
+from pathlib import Path
 from typing import Dict
 ############################
 from os.path import dirname as up
@@ -27,9 +28,6 @@ import re
 
 import lib.configs
 from lib.activelearning import Last
-# from lib.infers.deepgrow_pipeline import InferDeepgrowPipeline
-# from lib.infers.vertebra_pipeline import InferVertebraPipeline
-
 
 import monailabel
 from monailabel.interfaces.app import MONAILabelApp
@@ -48,7 +46,6 @@ from monailabel.tasks.infer.bundle import BundleInferTask
 from monailabel.tasks.train.bundle import BundleTrainTask
 from monailabel.utils.others.class_utils import get_class_names
 from monailabel.utils.others.generic import get_bundle_models, strtobool
-# from monailabel.utils.others.planner import HeuristicPlanner
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +68,6 @@ from deepeditplusplus_test_utils.simulation_transf_parametrisation_config import
 ###### Imports for heuristic planner 
 from deepeditplusplus_heuristic_planner_utils.planner_inference import HeuristicPlanner
 from deepeditplusplus_heuristic_planner_utils.checking_heuristic_planner import HeuristicPlannerChecker
-
-
 
 from monailabel.transform.writer import Writer 
 
@@ -116,12 +111,11 @@ class MyApp(MONAILabelApp):
             print("")
             exit(-1)
 
-        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu REMOVED FOR NOW.
-        # spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
-        # target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
-        self.heuristic_planner = strtobool(conf.get("heuristic_planner", "false"))
-        # self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
-        self.planner = HeuristicPlanner(version_param=conf.get("heuristic_planner_version"))
+        # Do not use Heuristic Planner here, dummy input. Should be fixed at some point with a refactor. 
+        #  
+        self.heuristic_planner = False #strtobool(conf.get("heuristic_planner", "false"))
+        
+        self.planner = None # HeuristicPlanner(version_param=conf.get("heuristic_planner_version"))
         # app models
         self.models: Dict[str, TaskConfig] = {}
         for n in models:
@@ -134,9 +128,6 @@ class MyApp(MONAILabelApp):
                     self.models[k].init(k, self.model_dir, conf, self.planner)
         logger.info(f"+++ Using Models: {list(self.models.keys())}")
 
-        # Load models from bundle config files, local or released in Model-Zoo, e.g., --conf bundles <spleen_ct_segmentation>
-        self.bundles = get_bundle_models(app_dir, conf, conf_key="bundles") if conf.get("bundles") else None
-
         super().__init__(
             app_dir=app_dir,
             studies=studies,
@@ -148,8 +139,8 @@ class MyApp(MONAILabelApp):
 
     def init_datastore(self) -> Datastore:
         datastore = super().init_datastore()
-        if self.heuristic_planner:
-            self.planner.run(datastore)
+        # if self.heuristic_planner:
+        #     self.planner.run(datastore)
         return datastore
 
     def init_infers(self) -> Dict[str, InferTask]:
@@ -225,9 +216,7 @@ More about the available app methods, please check the interface monailabel/inte
 
 
 def main():
-    import argparse
-    # import shutil
-    from pathlib import Path
+    
 
     # from monailabel.utils.others.generic import device_list, file_ext
 
@@ -267,7 +256,7 @@ def main():
 
     #Set of parametrisations for selecting the appropriate configs:
     parser.add_argument("--infer_config_version_param", default='-1')
-    parser.add_argument("--network_version_param", default='-4')
+    parser.add_argument("--network_version_param", default='-5')
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
     
@@ -278,7 +267,7 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='20241129_093732') 
+    parser.add_argument("--datetime", default='20241204_103626') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 
@@ -324,6 +313,13 @@ def main():
 
         inference_click_parametrisation_string = "No Click Param"
         inference_click_parametrisations_dict = {"No Click Param":[]}
+
+
+    #Extracting the heuristic planner dict
+    if strtobool(args.heuristic_planner):
+        raise NotImplementedError
+    else:
+        planner_dict = dict() #Otherwise we can just pass an empty dictionary, no planner dict required. 
 
     #Checking that all of the necessary checks have been made with respect to the heuristic planner:
     HeuristicPlannerChecker(vars(args))()
@@ -471,14 +467,6 @@ def main():
 
     #Extracting the path to the directory which all of the data, results, segmentations will be saved in.
     upper_level_dataset_dir = os.path.join(base_directory, 'datasets', args.studies) #
-
-    #Extracting the planner dict
-    if strtobool(args.heuristic_planner):
-        raise NotImplementedError
-    else:
-        planner_dict = dict() #Otherwise we can just pass an empty dictionary, no planner dict required. 
-
-
 
     #Test set inference
     if args.infer_type == "test":

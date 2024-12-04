@@ -344,7 +344,7 @@ class DeepEditPlusPlus(TaskConfig):
             duplicate_conf = copy.deepcopy(self.conf)
             # del duplicate_conf["mode"]
             
-            os.makedirs(os.path.join(self.model_dir, self.datetime_now))
+            os.makedirs(os.path.join(self.model_dir, self.datetime_now), exist_ok=True)
             with open(os.path.join(self.model_dir, self.datetime_now, train_configs_filename), 'w') as file:
                 file.write(json.dumps(duplicate_conf,indent=2)) 
 

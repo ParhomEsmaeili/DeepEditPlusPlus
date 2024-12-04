@@ -123,7 +123,7 @@ class DeepEditPlusPlus(BasicTrainTask):
         self.supported_lr_scheduler = ['0']
         self.supported_loss_func = ['-1', '0', '1', '2', '3', '4']
         self.supported_get_click_transform = ['1', '2']
-        self.supported_train_pre_transf = ['-6','-5', '-4', '-3','-2', '-1','1','2', '3']
+        self.supported_train_pre_transf = ['-7', '-6','-5', '-4', '-3','-2', '-1','1','2', '3']
         self.supported_train_post_transf = ['1', '2']
         self.supported_val_pre_transf = ['-3','-2', '-1', '1','2', '3']
         self.supported_val_post_transf = ['1']
@@ -202,7 +202,7 @@ class DeepEditPlusPlus(BasicTrainTask):
                 SplitPredsLabeld(keys="pred", version_param='0'),#,version_param='0'),
             ]
         elif self.train_post_transforms_version_param == '2':
-            #This is only configured for single output map formulations, not for deep supervision.
+            #This is configured to extract the output map for the actual prediction (not deep supervision feature maps) for computing train metrics.
             return [
                 ExtractMapsd(keys="pred", version_param='0'),
                 Activationsd(keys="pred", softmax=True),

@@ -37,10 +37,10 @@ class UniformRandGaussianSmoothd(Randomizable, MapTransform):
     def __init__(self, 
                 keys: KeysCollection, 
                 allow_missing_keys: bool = False, 
-                kernel_bounds: tuple[float, float] = (0.5, 1.5),
+                kernel_bounds: tuple[float, float] = (0.5, 1),
                 prob: float = 0.1,
                 mask_key: Optional[str] = 'intensity_aug_mask',
-                version_param : str = '2'
+                version_param : str = '1'
     ):
 
         super().__init__(keys, allow_missing_keys)

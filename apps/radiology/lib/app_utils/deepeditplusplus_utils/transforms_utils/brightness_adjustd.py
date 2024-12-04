@@ -39,7 +39,7 @@ class RandBrightnessd(Randomizable, MapTransform):
         keys:KeysCollection,
         allow_missing_keys:bool = False,
         prob: float = 0.15,
-        bounds: Sequence[float] = (0.7, 1.3),
+        bounds: Sequence[float] = (0.75, 1.25),
         version_param: str = '1',       
     ) -> None:
     #    RandomizableTransform .__init__(self, prob)

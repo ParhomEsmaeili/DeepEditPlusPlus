@@ -59,13 +59,17 @@ import ast
 
 deepeditpp_runscript_utils_dir = os.path.join(up(os.path.abspath(__file__)), 'lib', 'app_utils', 'deepeditplusplus_run_script_utils')
 sys.path.append(deepeditpp_runscript_utils_dir)
-
 from deepeditplusplus_heuristic_planner_utils.planner_train import HeuristicPlanner
 from deepeditplusplus_heuristic_planner_utils.checking_heuristic_planner import HeuristicPlannerChecker
 
+######## Imports for general utilities required
+
+from general_utils.extract_train_val_lists import load_data_split_lists
+
 class MyApp(MONAILabelApp):
-    def __init__(self, app_dir, studies, conf):
+    def __init__(self, app_dir, studies, conf, planner):
         self.model_dir = os.path.join(app_dir, "model")
+        self.planner = planner
         print('app dir {}'.format(app_dir))
         print('studies {}'.format(studies))
         print('conf {}'.format(conf))
@@ -105,13 +109,6 @@ class MyApp(MONAILabelApp):
             print("")
             exit(-1)
 
-        # Use Heuristic Planner to determine target spacing and spatial size based on dataset+gpu REMOVED FOR NOW
-        # spatial_size = json.loads(conf.get("spatial_size", "[48, 48, 32]"))
-        # target_spacing = json.loads(conf.get("target_spacing", "[1.0, 1.0, 1.0]"))
-        self.heuristic_planner = strtobool(conf.get("heuristic_planner", "false"))
-        # self.planner = HeuristicPlanner(spatial_size=spatial_size, target_spacing=target_spacing)
-        self.planner = HeuristicPlanner(version_param=conf.get("heuristic_planner_version"))
-
         # app models
         self.models: Dict[str, TaskConfig] = {}
         for n in models:
@@ -124,9 +121,6 @@ class MyApp(MONAILabelApp):
                     self.models[k].init(k, self.model_dir, conf, self.planner)
         logger.info(f"+++ Using Models: {list(self.models.keys())}")
 
-        # Load models from bundle config files, local or released in Model-Zoo, e.g., --conf bundles <spleen_ct_segmentation>
-        # self.bundles = get_bundle_models(app_dir, conf, conf_key="bundles") if conf.get("bundles") else None
-
         super().__init__(
             app_dir=app_dir,
             studies=studies,
@@ -138,8 +132,8 @@ class MyApp(MONAILabelApp):
 
     def init_datastore(self) -> Datastore:
         datastore = super().init_datastore()
-        if self.heuristic_planner:
-            self.planner.run(datastore)
+        # if self.heuristic_planner:
+        #     self.planner.run(datastore)
         return datastore
 
     def init_infers(self) -> Dict[str, InferTask]:
@@ -224,7 +218,6 @@ def main():
     )
 
     codebase_directory = up(up(up(os.path.abspath(__file__))))
-    print(codebase_directory)
     parser = argparse.ArgumentParser()
 
     #Arguments which configure some of the actual parameters used for training and dataset. 
@@ -234,10 +227,10 @@ def main():
     parser.add_argument("--heuristic_planner_version", default='1')
     parser.add_argument("--model", default="deepeditplusplus")
     parser.add_argument("--config_mode", default="train")# choices=("train"))
-    parser.add_argument("--max_epoch", default="3000")
+    parser.add_argument("--max_epoch", default="300")
     parser.add_argument("--train_batch_size", default='1')
     parser.add_argument("--val_batch_size", default='1')
-    parser.add_argument("--save_interval", default='100')
+    parser.add_argument("--save_interval", default='5')
     parser.add_argument("--target_spacing", default='[1,1,1]')
     parser.add_argument("--spatial_size", default='[128,128,128]')
     parser.add_argument("--divisible_padding_factor", default='[64,64,32]')
@@ -256,7 +249,7 @@ def main():
     parser.add_argument("--lr_scheduler_version_param", default='0')
     parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
-    parser.add_argument("--train_pre_transforms_version_param", default='-5')
+    parser.add_argument("--train_pre_transforms_version_param", default='-7')
     parser.add_argument("--train_post_transforms_version_param", default='2')
     parser.add_argument("--val_pre_transforms_version_param", default='-3')
     parser.add_argument("--val_post_transforms_version_param", default='1')
@@ -270,7 +263,7 @@ def main():
     parser.add_argument("--engine_version_param", default='0')
 
     parser.add_argument("--train_config_version_param", default='1')
-    parser.add_argument("--network_version_param", default='-4') 
+    parser.add_argument("--network_version_param", default='-5') 
     parser.add_argument("--strategy_method_version_param", default='0')
     parser.add_argument("--scoring_method_version_param", default='0')
 
@@ -286,30 +279,46 @@ def main():
     ################ Adding the name of the cuda device used ###############
     cuda_device = torch.cuda.current_device()
     device_name = torch.cuda.get_device_name(cuda_device)
-    print(device_name)
+    # print(device_name)
 
 
     ############### Extracting the datetime being used for model training (if its a completely fresh one then it would be None by default)
 
     if args.datetime == None:
         input_datetime = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        use_pretrained_model = "False"
 
     else: 
         input_datetime = args.datetime
+        use_pretrained_model = "True"
 
+############################################# Heuristic Planner Operations  ############################################################################
 
-    #Checking that all of the necessary checks have been made with respect to the heuristic planner:
+    #Checking that all of the necessary checks have been made with respect to the heuristic planner (e.g. whether it is needed or not, etc.):
+
     HeuristicPlannerChecker(vars(args))()
 
+    # Use Heuristic Planner to extract information regarding the dataset, gpu capabilities etc for fingerprinting etc.....
+
+    if strtobool(args.heuristic_planner):
+        planner = HeuristicPlanner(version_param=args.heuristic_planner_version)
+
+        planner.run(vars(args))
+        planner_dict = vars(args)
+
+    else:
+        planner = None 
+        planner_dict = dict()
     ############### Adding flexibility for selecting which set of model weights to use #####################
     
 
     conf = {
         "models": args.model,
-        "use_pretrained_model": "False",
+        "use_pretrained_model": use_pretrained_model,
         "datetime":input_datetime,
-        "heuristic_planner":args.heuristic_planner,
+        "heuristic_planner_bool":args.heuristic_planner,
         "heuristic_planner_version": args.heuristic_planner_version,
+        "heuristic_planner_dict": planner_dict,
 
         "dataset_name": args.studies,
         "max_epochs": args.max_epoch,
@@ -328,7 +337,7 @@ def main():
         "interactive_init_prob_val":args.interactive_init_prob_val,
         "deepedit_prob_val":args.deepedit_prob_val,
         
-        #Introducing the version params for setting up training and the network selected. in the components
+        #Introducing the version params for setting up the components in the config file.
     
         "optimizer_version_param": args.optimizer_version_param,
         "lr_scheduler_version_param": args.lr_scheduler_version_param,
@@ -348,48 +357,50 @@ def main():
         "engine_version_param": args.engine_version_param,
         "network_version_param": args.network_version_param,
 
-        #Introducing the vrsion params for the config files
+        #Introducing the vrsion params for initialisation of the config components themselves.
 
         "train_config_version_param": args.train_config_version_param,
         "strategy_method_version_param": args.strategy_method_version_param,
         "scoring_method_version_param": args.scoring_method_version_param
     }
 
-    # task = args.task
-
     # Train
-    app = MyApp(app_dir, dataset_dir_tr, conf)
+    app = MyApp(app_dir, dataset_dir_tr, conf, planner)
 
-    ########## Loading in the list of train/val images #######################
+    # ########## Loading in the list of train/val images #######################
 
-    val_fold = args.val_fold
-    train_folds = args.train_folds
+    # val_fold = args.val_fold
+    # train_folds = args.train_folds
     
-    dataset_dir_outer = os.path.join(codebase_directory, "datasets", args.studies) 
-    #The dataset folder which contains alllll of the information, and not just the imagesTr folder.
+    # dataset_dir_outer = os.path.join(codebase_directory, "datasets", args.studies) 
+    # #The dataset folder which contains alllll of the information, and not just the imagesTr folder.
 
-    with open(os.path.join(dataset_dir_outer, "train_val_split_dataset.json")) as f:
-        dictionary_setting = json.load(f)
-        val_dataset = dictionary_setting[f"fold_{val_fold}"]
-        training_dataset = []
-        for i in train_folds:
-            # if i != int(val_fold):
-            training_dataset += dictionary_setting[f"fold_{i}"]
+    # with open(os.path.join(dataset_dir_outer, "train_val_split_dataset.json")) as f:
+    #     dictionary_setting = json.load(f)
+    #     val_dataset = dictionary_setting[f"fold_{val_fold}"]
+    #     training_dataset = []
+    #     for i in train_folds:
+    #         # if i != int(val_fold):
+    #         training_dataset += dictionary_setting[f"fold_{i}"]
 
-    ########## Joining the subdir/image-labels     
-    for pair_dict in val_dataset:
-        pair_dict["image"] = os.path.join(dataset_dir_outer, pair_dict["image"][2:]) + '.nii.gz'
-        pair_dict["label"] = os.path.join(dataset_dir_outer, pair_dict["label"][2:]) + '.nii.gz'
+    # ########## Joining the subdir/image-labels     
+    # for pair_dict in val_dataset:
+    #     pair_dict["image"] = os.path.join(dataset_dir_outer, pair_dict["image"][2:]) + '.nii.gz'
+    #     pair_dict["label"] = os.path.join(dataset_dir_outer, pair_dict["label"][2:]) + '.nii.gz'
 
-    for pair_dict in training_dataset:
-        pair_dict["image"] = os.path.join(dataset_dir_outer, pair_dict["image"][2:]) + '.nii.gz'
-        pair_dict["label"] = os.path.join(dataset_dir_outer, pair_dict["label"][2:]) + '.nii.gz'
+    # for pair_dict in training_dataset:
+    #     pair_dict["image"] = os.path.join(dataset_dir_outer, pair_dict["image"][2:]) + '.nii.gz'
+    #     pair_dict["label"] = os.path.join(dataset_dir_outer, pair_dict["label"][2:]) + '.nii.gz'
 
-    #train_dataset = json.loads()
-    if strtobool(args.heuristic_planner):
-        planner_dict = vars(app.planner)
-    else:
-        planner_dict = dict()
+    ############## Extracting the train and validation fold datalists #######################################
+
+    training_dataset, val_dataset = load_data_split_lists(args.train_folds, args.val_fold, args.studies) #Last one = dataset folder name.
+
+
+    # if strtobool(args.heuristic_planner):
+    #     planner_dict = vars(app.planner)
+    # else:
+    #     planner_dict = dict()
 
     app.train(
         request={

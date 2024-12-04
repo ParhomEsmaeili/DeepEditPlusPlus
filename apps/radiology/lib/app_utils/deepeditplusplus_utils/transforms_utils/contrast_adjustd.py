@@ -52,10 +52,10 @@ class RandContrastAdjustd(Randomizable, MapTransform):
         keys:KeysCollection,
         allow_missing_keys:bool = False,
         prob: float = 0.15,
-        bounds: Sequence[float] = (0.65, 1.5),
+        bounds: Sequence[float] = (0.75, 1.25),
         preserve_range: bool = True,
         foreground_info_key: Optional[str] = 'intensity_aug_mask_dict',
-        version_param: str = '2',       
+        version_param: str = '1',       
     ) -> None:
     #    RandomizableTransform .__init__(self, prob)
         super().__init__(keys, allow_missing_keys)

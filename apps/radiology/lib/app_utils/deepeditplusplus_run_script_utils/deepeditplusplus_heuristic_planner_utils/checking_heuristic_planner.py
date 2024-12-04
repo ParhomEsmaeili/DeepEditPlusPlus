@@ -8,7 +8,7 @@ import json
 '''
 
 '''
-    Version 1: Checks whether the modality is x-ray based or not. If not, then we use per image normalisation.
+    Version 1: Checks whether the modality is x-ray based or not. If not, then we need to use per image normalisation. If yes, then we require the heuristic planner.
 '''
 class HeuristicPlannerChecker:
 
@@ -44,7 +44,7 @@ class HeuristicPlannerChecker:
             
             if dataset_config_dict['modality'] in x_ray_modalities:
                 if self.args['heuristic_planner']  == 'False':
-                    raise ValueError('The heuristic planner cannot be false if we are using an X-ray type modality')
+                    raise ValueError('The heuristic planner bool cannot be false if we are using an X-ray type modality')
 
 
     def __call__(self):

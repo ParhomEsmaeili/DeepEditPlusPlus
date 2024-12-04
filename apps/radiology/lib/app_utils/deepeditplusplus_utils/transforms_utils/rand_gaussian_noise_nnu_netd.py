@@ -77,7 +77,7 @@ class RandGaussianNoisennUNetd(Randomizable, MapTransform):
         var = self.R.uniform(self.var_bound[0], self.var_bound[1]) if self.sample_var else self.var_bound[0]
         noise = self.R.normal(self.mean, var ** 0.5 , size=img.shape)
         # noise is float64 array, convert to the image dtype to save memory
-        self.noise, *_ = convert_data_type(noise, dtype=img.dtype)
+        self.noise, *_ = convert_to_dst_type(noise, img)
 
     def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
         
