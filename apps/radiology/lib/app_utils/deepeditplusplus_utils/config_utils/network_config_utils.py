@@ -18,14 +18,14 @@ Version 1: UNETR for deepedit++ v1.1
 
 '''
 
-# from monai.networks.nets import UNETR, DynUNet
+from monai.networks.nets import UNETR, DynUNet
 import os
 import sys
 from os.path import dirname as up
 
-sys.path.append(os.path.abspath(up(up(up(up(up(__file__)))))))
+# sys.path.append(os.path.abspath(up(up(up(up(up(__file__)))))))
 
-from networks.nets import UNETR, DynUNet 
+# from networks.nets import UNETR, DynUNet 
 
 def run_get_network_configs(version_param, self_dict):
     '''Inputs: The dict containing the self attributes from the parent file (deepedit++ configs) and the version param for the network config

@@ -267,13 +267,13 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='20241204_103626') 
+    parser.add_argument("--datetime", default='20241204_211926') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 
     
     #Adding the inference setup script parametrisations for the components:
-    parser.add_argument("--pre_transforms_version_param", default='-2')
+    parser.add_argument("--pre_transforms_version_param", default='-3')
     parser.add_argument("--inverse_transforms_version_param", default='0')
     parser.add_argument("--post_transforms_version_param", default='0')
     parser.add_argument("--inferer_version_param", default='0')

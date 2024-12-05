@@ -300,7 +300,7 @@ def main():
 
     # Use Heuristic Planner to extract information regarding the dataset, gpu capabilities etc for fingerprinting etc.....
 
-    if strtobool(args.heuristic_planner):
+   if strtobool(args.heuristic_planner):
         planner = HeuristicPlanner(version_param=args.heuristic_planner_version)
 
         planner.run(vars(args))

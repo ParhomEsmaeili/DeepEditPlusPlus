@@ -26,7 +26,7 @@ from transforms_utils.extract_meta_informationd import ExtractMetad
 from transforms_utils.modality_based_normalisationd import ImageNormalisationd
 from transforms_utils.randblurd import UniformRandGaussianSmoothd
 from transforms_utils.rand_gamma_adjustd import RandGammaAdjustnnUNetd
-from transforms_utils.rand_gaussian_noise_nnu_netd import RandGaussianNoisennUNetd
+# from transforms_utils.rand_gaussian_noise_nnu_netd import RandGaussianNoisennUNetd
 from transforms_utils.brightness_adjustd import RandBrightnessd 
 from transforms_utils.contrast_adjustd import RandContrastAdjustd
 
@@ -48,7 +48,8 @@ from monai.transforms import (
     ToDeviced,
     DivisiblePadd,
     CenterSpatialCropd,
-    RandSimulateLowResolutiond
+    RandSimulateLowResolutiond,
+    RandGaussianNoised
 )
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ def run_get_train_pre_transf(self_dict, context, func_version_param):
             NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'), 
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='4'), 
-            RandGaussianNoisennUNetd(keys="image", sample_var= True, version_param = '1'),
+            RandGaussianNoised(keys="image", prob=0.1, mean=0, std=0.1, sample_std= True),
             RandShiftIntensityd(keys="image", offsets=0.10, prob=0.50), 
             #Here we will pad the image to fit the requirements of the backbone architecture, .
             DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor']),
