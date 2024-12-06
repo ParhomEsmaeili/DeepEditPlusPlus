@@ -218,3 +218,33 @@ class ImageNormalisationd(MapTransform):
                 else:
                     raise KeyError('The insert key is not supported for this function')
             return d  
+
+if __name__ == '__main__':
+
+    from monai.transforms import Compose, EnsureChannelFirstd, Orientationd, LoadImaged, DivisiblePadd
+    import nibabel as nib 
+
+    input_dict = {'image': '/home/parhomesmaeili/DeepEditPlusPlus Development/DeepEditPlusPlus/datasets/BraTS2021_Training_Data_Split_True_proportion_0.8_channels_t2_resized_FLIRT_binarised/imagesTr/BraTS2021_00116.nii.gz'}
+
+
+    load_stack_minmax_norm = [LoadImaged(keys=("image"), reader="ITKReader", image_only=False), 
+                EnsureChannelFirstd(keys=("image")), 
+                Orientationd(keys=("image"), axcodes="RAS"), 
+                ImageNormalisationd(keys="image", modality="MRI", version_param='1')]
+
+    load_stack_quantile_norm = [LoadImaged(keys=("image"), reader="ITKReader", image_only=False), 
+                EnsureChannelFirstd(keys=("image")), 
+                Orientationd(keys=("image"), axcodes="RAS"), 
+                ImageNormalisationd(keys="image", modality="MRI", version_param='2')]
+
+    load_stack_zscore_foreground = [LoadImaged(keys=("image"), reader="ITKReader", image_only=False), 
+                EnsureChannelFirstd(keys=("image")), 
+                Orientationd(keys=("image"), axcodes="RAS"), 
+                ImageNormalisationd(keys="image", modality="MRI", version_param='5')]
+    
+
+    output_minmax = Compose(load_stack_minmax_norm)(input_dict)
+    output_quantile = Compose(load_stack_quantile_norm)(input_dict)
+    output_zscore = Compose(load_stack_zscore_foreground)(input_dict)
+
+    print('fin!')

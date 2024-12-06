@@ -249,7 +249,7 @@ def main():
     parser.add_argument("--lr_scheduler_version_param", default='0')
     parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
-    parser.add_argument("--train_pre_transforms_version_param", default='-7')
+    parser.add_argument("--train_pre_transforms_version_param", default='-3')
     parser.add_argument("--train_post_transforms_version_param", default='2')
     parser.add_argument("--val_pre_transforms_version_param", default='-3')
     parser.add_argument("--val_post_transforms_version_param", default='1')
@@ -300,7 +300,7 @@ def main():
 
     # Use Heuristic Planner to extract information regarding the dataset, gpu capabilities etc for fingerprinting etc.....
 
-   if strtobool(args.heuristic_planner):
+    if strtobool(args.heuristic_planner):
         planner = HeuristicPlanner(version_param=args.heuristic_planner_version)
 
         planner.run(vars(args))

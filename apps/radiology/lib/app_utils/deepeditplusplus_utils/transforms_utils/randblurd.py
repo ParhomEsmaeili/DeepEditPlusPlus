@@ -100,7 +100,8 @@ class UniformRandGaussianSmoothd(Randomizable, MapTransform):
                 
                 #Extracting the padding size as kernel size // 2:
 
-                 
+                #We generate the dummy kernel, so that we know the kernel size...
+                # kernel gaussian_1d(s, truncated=self.truncated, approx=self.approx)
 
                 # spatialpad_class = SpatialPad()
                 # spatialcrop_class = SpatialCrop()
