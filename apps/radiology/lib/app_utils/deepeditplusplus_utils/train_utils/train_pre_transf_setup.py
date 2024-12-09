@@ -75,6 +75,7 @@ def run_get_train_pre_transf(self_dict, context, func_version_param):
             NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'), 
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='4'), 
+            ToDeviced(keys=("image","label"), device=context.device),
             RandGaussianNoised(keys="image", prob=0.1, mean=0, std=0.1, sample_std= True),
             RandShiftIntensityd(keys="image", offsets=0.10, prob=0.50), 
             #Here we will pad the image to fit the requirements of the backbone architecture, .
@@ -99,6 +100,7 @@ def run_get_train_pre_transf(self_dict, context, func_version_param):
             NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'), 
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='4'), 
+            ToDeviced(keys=("image","label"), device=context.device),
             RandShiftIntensityd(keys="image", offsets=0.10, prob=0.50), 
             #Here we will pad the image to fit the requirements of the backbone architecture, .
             DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor'], mode='edge'),
@@ -194,6 +196,7 @@ def run_get_train_pre_transf(self_dict, context, func_version_param):
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ImageNormalisationd(keys="image", planner_dict = context.planner_dict, modality = self_dict['modality'], version_param='4'),
             # CenterSpatialCropd(keys=("image", "label"), roi_size=self.spatial_size),
+            ToDeviced(keys=("image", "label"), device=context.device),
             RandShiftIntensityd(keys="image", offsets=0.10, prob=0.50),
             #Intensity modif is applied prior to padding so that the model does not have to deal with stochasticity in the region it should ignore.
 

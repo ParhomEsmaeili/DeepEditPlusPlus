@@ -28,6 +28,7 @@ This should already have been pre-implemented in pre-processing anyways... the v
 
 
 Version 0: The original deepedit implementation.
+version 1: It skips over the normalisation as the data should be pre-normalised, just extracts the names of the labels and their corresponding new integer codes..
 
 
 '''
@@ -53,7 +54,7 @@ class NormalizeLabelsInDatasetd(MapTransform):
         self.label_names = label_names or {}
         self.version_param = version_param 
 
-        self.supported_version_params = ['0']
+        self.supported_version_params = ['0', '1']
 
         assert self.version_param in self.supported_version_params, "Cannot use this class of transform as the version is not yet supported"
 
@@ -65,21 +66,43 @@ class NormalizeLabelsInDatasetd(MapTransform):
         if self.version_param == '0':
 
             for key in self.key_iterator(d):
-                # Dictionary containing new label numbers
-                new_label_names = {}
-                label = np.zeros(d[key].shape)
-                # Making sure the range values and number of labels are the same
-                for idx, (key_label, val_label) in enumerate(self.label_names.items(), start=1):
-                    if key_label != "background":
-                        new_label_names[key_label] = idx
-                        label[d[key] == val_label] = idx
-                    if key_label == "background":
-                        new_label_names["background"] = 0
+                if key == 'label':
+                    # Dictionary containing new label numbers
+                    new_label_names = {}
+                    label = np.zeros(d[key].shape)
+                    # Making sure the range values and number of labels are the same
+                    for idx, (key_label, val_label) in enumerate(self.label_names.items(), start=1):
+                        if key_label != "background":
+                            new_label_names[key_label] = idx
+                            label[d[key] == val_label] = idx
+                        if key_label == "background":
+                            new_label_names["background"] = 0
 
-                d["label_names"] = new_label_names
-                if isinstance(d[key], MetaTensor):
-                    d[key].array = label
+                    d["label_names"] = new_label_names
+                    if isinstance(d[key], MetaTensor):
+                        d[key].array = label
+                    else:
+                        d[key] = label
                 else:
-                    d[key] = label
+                    logger.info('This transform is only intended for the segmentation labels')
+            return d
         
+        elif self.version_param == '1':
+
+            for key in self.key_iterator(d):
+                if key == 'label':
+                    # Dictionary containing new label numbers
+                    new_label_names = {}
+                    # Making sure the range values and number of labels are the same
+                    for idx, (key_label, val_label) in enumerate(self.label_names.items(), start=1):
+                        if key_label != "background":
+                            new_label_names[key_label] = idx
+                            # label[d[key] == val_label] = idx
+                        if key_label == "background":
+                            new_label_names["background"] = 0
+
+                    d["label_names"] = new_label_names
+                else:
+                    logger.info('This transform is only intended for the segmentation labels')
+
             return d

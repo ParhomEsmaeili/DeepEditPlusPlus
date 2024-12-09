@@ -175,8 +175,8 @@ class ImageNormalisationd(MapTransform):
                         foreground_mask = ForegroundMask(invert=self.invert)(d[key])[0,...] 
                         #We implement this to fill most of the holes that may occur in the foreground
                         fill_binary_holes = binary_fill_holes(foreground_mask) 
-                        mean = torch.masked_select(d[key][0,...], torch.from_numpy(fill_binary_holes)).mean()
-                        std = torch.masked_select(d[key][0, ...], torch.from_numpy(fill_binary_holes)).std()
+                        mean = torch.masked_select(d[key][0,...], torch.from_numpy(fill_binary_holes).to(device=foreground_mask.device)).mean()
+                        std = torch.masked_select(d[key][0, ...], torch.from_numpy(fill_binary_holes).to(device=foreground_mask.device)).std()
                         d[key] = NormalizeIntensity(subtrahend=mean, divisor=std)(d[key])    
                 
                     d["preprocessing_original_size"] = [j for i,j in enumerate(d[key].shape) if i != 0]
@@ -206,12 +206,12 @@ class ImageNormalisationd(MapTransform):
                         foreground_mask = ForegroundMask(invert=self.invert)(d[key])[0,...] 
                         #We implement this to fill most of the holes that may occur in the foreground
                         fill_binary_holes = binary_fill_holes(foreground_mask) 
-                        mean = torch.masked_select(d[key][0,...], torch.from_numpy(fill_binary_holes)).mean()
-                        std = torch.masked_select(d[key][0, ...], torch.from_numpy(fill_binary_holes)).std()
+                        mean = torch.masked_select(d[key][0,...], torch.from_numpy(fill_binary_holes).to(device=foreground_mask.device)).mean()
+                        std = torch.masked_select(d[key][0, ...], torch.from_numpy(fill_binary_holes).to(device=foreground_mask.device)).std()
                         d[key] = NormalizeIntensity(subtrahend=mean, divisor=std)(d[key])    
                         #We pass through a dictionary which contains the foreground region (approximately..) and also that we would only like to use the foreground
                         #region voxel values for computing any summary statistics required for any intensity augmentations.
-                        intensity_aug_mask_dict = {'foreground_region':torch.from_numpy(fill_binary_holes).int(), 'foreground_stats_only':True}
+                        intensity_aug_mask_dict = {'foreground_region':torch.from_numpy(fill_binary_holes).to(device=foreground_mask.device).int(), 'foreground_stats_only':True}
                     
                     d[self.foreground_info_key] = intensity_aug_mask_dict
                     # d["preprocessing_original_size"] = [j for i,j in enumerate(d[key].shape) if i != 0]
