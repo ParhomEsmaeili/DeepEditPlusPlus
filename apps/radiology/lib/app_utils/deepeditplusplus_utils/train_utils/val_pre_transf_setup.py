@@ -100,6 +100,7 @@ def run_get_val_pre_transf(self_dict, context, func_version_param):
             EnsureChannelFirstd(keys=("image", "label")),
             # MappingLabelsInDatasetd(keys="label", original_label_names=self.original_dataset_labels, label_names = self._labels, label_mapping=self.label_mapping),
             NormalizeLabelsInDatasetd(keys="label", label_names=self_dict['_labels'], version_param='0'),
+            ToDeviced(keys=("image","label"), device=context.device),
             Orientationd(keys=["image", "label"], axcodes="RAS"),
             ImageNormalisationd(keys="image", modality = self_dict['modality'], version_param='4'),
             DivisiblePadd(keys=("image", "label"), k=self_dict['component_parametrisation_dict']['divisible_padding_factor']),
