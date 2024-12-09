@@ -267,7 +267,7 @@ def main():
 
     #Information regarding the checkpoint and model version (and also the validation fold used for performing inference if it is validation)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--datetime", default='20241206_010150') 
+    parser.add_argument("--datetime", default='20241208_112547') 
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation")
 
     #################################### 

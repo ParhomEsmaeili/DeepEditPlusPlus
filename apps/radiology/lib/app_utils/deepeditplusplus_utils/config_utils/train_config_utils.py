@@ -57,6 +57,7 @@ def run_train_class_config(version_param, self_dict):
         component_parametrisation_dict['spatial_size'] = self_dict['spatial_size']
         component_parametrisation_dict['target_spacing'] = self_dict['target_spacing']
         component_parametrisation_dict['divisible_padding_factor'] = self_dict['divisible_padding_factor']
+        component_parametrisation_dict['init_lr'] = self_dict['init_lr']
         component_parametrisation_dict['max_iterations'] = self_dict['max_iterations']
         component_parametrisation_dict['interactive_init_probability_train'] = self_dict['interactive_init_prob_train']
         component_parametrisation_dict['deepedit_probability_train'] = self_dict['deepedit_prob_train'] 

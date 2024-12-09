@@ -234,6 +234,7 @@ def main():
     parser.add_argument("--target_spacing", default='[1,1,1]')
     parser.add_argument("--spatial_size", default='[128,128,128]')
     parser.add_argument("--divisible_padding_factor", default='[64,64,32]')
+    parser.add_argument("--init_lr", default='0.0005')
     parser.add_argument("--val_fold", default='0', help="The fold which is designated as the validation, everything else is the train split, second value denotes how many total folds")
     parser.add_argument("--train_folds", nargs='+', default=['1','2','3','4'])
     parser.add_argument("--max_iterations", default='1')
@@ -245,7 +246,7 @@ def main():
     
     #Introducing the version params for setting up training_setup.py, the config_setup.py version param, and the network selected version_param.
     
-    parser.add_argument("--optimizer_version_param", default='0')
+    parser.add_argument("--optimizer_version_param", default='1')
     parser.add_argument("--lr_scheduler_version_param", default='0')
     parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
@@ -329,6 +330,7 @@ def main():
         "target_spacing":args.target_spacing,
         "spatial_size":args.spatial_size,
         "divisible_padding_factor":args.divisible_padding_factor,
+        "init_lr": args.init_lr,
         "val_fold":args.val_fold,
         "train_folds":args.train_folds,
         "max_iterations":args.max_iterations,

@@ -260,6 +260,10 @@ class DeepEditPlusPlus(TaskConfig):
             except:
                 self.max_iterations = None
 
+            try:
+                self.init_lr = float(self.conf.get('init_lr'))
+            except:
+                self.init_lr = None 
             ###
 
             interactive_init_prob_train = self.conf.get("interactive_init_prob_train", None)
