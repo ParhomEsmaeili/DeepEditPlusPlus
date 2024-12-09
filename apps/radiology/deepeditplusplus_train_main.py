@@ -250,7 +250,7 @@ def main():
     parser.add_argument("--lr_scheduler_version_param", default='0')
     parser.add_argument("--loss_func_version_param", default='-1')
     parser.add_argument("--get_click_version_param", default='2')
-    parser.add_argument("--train_pre_transforms_version_param", default='-6')
+    parser.add_argument("--train_pre_transforms_version_param", default='-3')
     parser.add_argument("--train_post_transforms_version_param", default='2')
     parser.add_argument("--val_pre_transforms_version_param", default='-3')
     parser.add_argument("--val_post_transforms_version_param", default='1')
