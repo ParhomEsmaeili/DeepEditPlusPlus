@@ -602,6 +602,8 @@ class BasicTrainTask(TrainTask):
         context.evaluator = self._create_evaluator(context)
         context.trainer = self._create_trainer(context)
 
+        print(context.local_rank)
+        
         # Finalize and Run Training
         self.finalize(context)
 
@@ -702,7 +704,6 @@ class BasicTrainTask(TrainTask):
 
     def _create_evaluator(self, context: Context):
         evaluator = None
-        print(context.local_rank)
         if context.val_datalist and len(context.val_datalist) > 0:
             val_hanlders: List = self.val_handlers(context)
             if context.local_rank == 0:
