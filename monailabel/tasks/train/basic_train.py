@@ -490,7 +490,7 @@ class BasicTrainTask(TrainTask):
         
         req = copy.deepcopy(self._config)
         req.update(copy.deepcopy(request))
-        req["run_id"] = datetime.now().strftime("%Y%m%d_%H%M%S") #datetime.now().strftime("%Y%m%d_%H%M%S")
+        req["run_id"] = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         device = name_to_device(req.get("device", "cuda"))
         req["device"] = device
@@ -702,6 +702,7 @@ class BasicTrainTask(TrainTask):
 
     def _create_evaluator(self, context: Context):
         evaluator = None
+        print(context.local_rank)
         if context.val_datalist and len(context.val_datalist) > 0:
             val_hanlders: List = self.val_handlers(context)
             if context.local_rank == 0:

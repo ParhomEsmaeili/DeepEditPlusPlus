@@ -230,7 +230,7 @@ def main():
     parser.add_argument("--max_epoch", default="300")
     parser.add_argument("--train_batch_size", default='2')
     parser.add_argument("--val_batch_size", default='1')
-    parser.add_argument("--save_interval", default='5')
+    parser.add_argument("--save_interval", default='50')
     parser.add_argument("--target_spacing", default='[1,1,1]')
     parser.add_argument("--spatial_size", default='[128,128,128]')
     parser.add_argument("--divisible_padding_factor", default='[64,64,32]')
@@ -398,11 +398,6 @@ def main():
 
     training_dataset, val_dataset = load_data_split_lists(args.train_folds, args.val_fold, args.studies) #Last one = dataset folder name.
 
-
-    # if strtobool(args.heuristic_planner):
-    #     planner_dict = vars(app.planner)
-    # else:
-    #     planner_dict = dict()
 
     app.train(
         request={
