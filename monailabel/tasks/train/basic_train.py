@@ -603,7 +603,7 @@ class BasicTrainTask(TrainTask):
         context.trainer = self._create_trainer(context)
 
         print(context.local_rank)
-        
+
         # Finalize and Run Training
         self.finalize(context)
 
@@ -716,7 +716,7 @@ class BasicTrainTask(TrainTask):
                         n_saved=self._n_saved,
                     )
                 )
-
+            print(f'local rank is :{context.local_rank}')
             if self.engine_version_param == '0':
                 evaluator = DefaultSupervisedEvaluator(
                     device=context.device,
@@ -763,7 +763,7 @@ class BasicTrainTask(TrainTask):
                     n_saved=self._n_saved,
                 )
             )
-
+        print(f'local rank is : {context.local_rank}')
         self._load_checkpoint(context, train_handlers)
 
         if self.engine_version_param == '0':
