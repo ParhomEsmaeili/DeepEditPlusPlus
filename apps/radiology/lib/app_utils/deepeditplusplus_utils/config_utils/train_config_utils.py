@@ -68,16 +68,17 @@ def run_train_class_config(version_param, self_dict):
             model_dir=output_dir,
             network=self_dict['networks_dict']['train_network'],
             labels=self_dict['labels'],
+            external_validation_dir=self_dict['external_validation_output_dir'],
+            modality = self_dict['imaging_modality'],
             train_version_params = self_dict['train_version_params'],
             component_parametrisation_dict = component_parametrisation_dict,
-            modality = self_dict['imaging_modality'],
-            external_validation_dir=self_dict['external_validation_output_dir'], 
+            debug_mode=False, #True 
             n_saved=int(self_dict['max_epochs']) // int(self_dict['save_interval']),
+            train_save_interval=int(self_dict['save_interval']),
             load_path=load_path,
             publish_path=self_dict['train_paths'][1],
             number_intensity_ch=self_dict['number_intensity_ch'],
-            config={"pretrained": strtobool(self_dict['conf'].get("use_pretrained_model", "true"))},
-            debug_mode=False, #True        
+            config={"pretrained": strtobool(self_dict['conf'].get("use_pretrained_model", "true"))},       
             find_unused_parameters=True,
         )
         return task

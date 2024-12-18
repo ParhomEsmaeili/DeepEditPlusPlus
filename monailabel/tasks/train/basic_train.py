@@ -602,7 +602,7 @@ class BasicTrainTask(TrainTask):
         context.evaluator = self._create_evaluator(context)
         context.trainer = self._create_trainer(context)
 
-        print(context.local_rank)
+        # print(context.local_rank)
 
         # Finalize and Run Training
         self.finalize(context)
@@ -710,13 +710,13 @@ class BasicTrainTask(TrainTask):
                 val_hanlders.append(
                     CheckpointSaver(
                         save_dir=context.output_dir,
-                        save_dict={self._model_dict_key: context.network},
+                        save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer}, #save_dict={self._model_dict_key: context.network},
                         save_key_metric=True,
                         key_metric_filename=self._key_metric_filename,
                         n_saved=self._n_saved,
                     )
                 )
-            print(f'local rank is :{context.local_rank}')
+            # print(f'local rank is :{context.local_rank}')
             if self.engine_version_param == '0':
                 evaluator = DefaultSupervisedEvaluator(
                     device=context.device,
@@ -752,7 +752,7 @@ class BasicTrainTask(TrainTask):
             train_handlers.append(
                 CheckpointSaver(
                     save_dir=context.output_dir,
-                    save_dict={self._model_dict_key: context.network},
+                    save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer}, #{self._model_dict_key: context.network},
                     save_interval=self._train_save_interval,
                     save_final=True,
                     final_filename=self._final_filename,
@@ -763,7 +763,7 @@ class BasicTrainTask(TrainTask):
                     n_saved=self._n_saved,
                 )
             )
-        print(f'local rank is : {context.local_rank}')
+        # print(f'local rank is : {context.local_rank}')
         self._load_checkpoint(context, train_handlers)
 
         if self.engine_version_param == '0':

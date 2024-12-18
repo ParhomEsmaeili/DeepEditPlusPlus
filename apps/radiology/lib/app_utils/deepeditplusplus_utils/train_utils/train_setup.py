@@ -72,7 +72,6 @@ class DeepEditPlusPlus(BasicTrainTask):
         network,
         labels,
         external_validation_dir,
-        n_saved,
         modality,
         train_version_params,
         component_parametrisation_dict,
@@ -155,7 +154,7 @@ class DeepEditPlusPlus(BasicTrainTask):
 
         
     
-        super().__init__(model_dir, description, n_saved=n_saved, labels=labels, engine_version_param=self.engine_version_param, **kwargs)
+        super().__init__(model_dir, description, labels=labels, engine_version_param=self.engine_version_param, **kwargs)
         
         # self.self_dict = dict(vars(self))
 
