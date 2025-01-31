@@ -227,7 +227,7 @@ def main():
     parser.add_argument("--heuristic_planner_version", default='1')
     parser.add_argument("--model", default="deepeditplusplus")
     parser.add_argument("--config_mode", default="train")# choices=("train"))
-    parser.add_argument("--max_epoch", default="4")
+    parser.add_argument("--max_epoch", default="2")
     parser.add_argument("--train_batch_size", default='2')
     parser.add_argument("--val_batch_size", default='1')
     parser.add_argument("--save_interval", default='1')

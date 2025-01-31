@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from monai.config import KeysCollection
 from monai.data import MetaTensor
 from monai.engines.utils import IterationEvents, default_metric_cmp_fn, default_prepare_batch
-from monai.engines.workflow import Workflow
+# from monai.engines.workflow import Workflow
 from monai.inferers import Inferer, SimpleInferer
 from monai.networks.utils import eval_mode, train_mode
 from monai.transforms import Transform
@@ -28,6 +28,15 @@ from monai.utils import ForwardMode, IgniteInfo, ensure_tuple, min_version, opti
 from monai.utils.enums import CommonKeys as Keys
 from monai.utils.enums import EngineStatsKeys as ESKeys
 from monai.utils.module import look_up_option, pytorch_after
+
+#Redirecting the workflow import so that we can modify it in debugger:
+import sys
+import os 
+from os.path import dirname as up 
+#Appending the standard engines directory to the path:
+sys.path.append(up(os.path.abspath(__file__)))
+from workflow import Workflow
+
 
 if TYPE_CHECKING:
     from ignite.engine import Engine, EventEnum
@@ -145,7 +154,7 @@ class Evaluator(Workflow):
         """
         # init env value for current validation process
         self.state.max_epochs = max(global_epoch, 1)  # at least one epoch of validation
-        self.state.epoch = global_epoch - 1
+        self.state.epoch = global_epoch - 1 #Functionally, all that this performs is a round of validation between epoch:state and epoch:max for the evaluator (diff = 1, ergo 1 epoch of validation)
         self.state.iteration = 0
         super().run()
 

@@ -264,7 +264,7 @@ class BasicTrainTask(TrainTask):
         pass
 
     @abstractmethod
-    def lr_scheduler_handler(self, context: Context):
+    def lr_schedulers(self, context: Context):
         # # lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(context.optimizer, mode="min")
         # # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
 
@@ -339,10 +339,10 @@ class BasicTrainTask(TrainTask):
     def train_handlers(self, context: Context):
         handlers: List[Any] = []
 
-        # LR Scheduler
-        lr_scheduler = self.lr_scheduler_handler(context)
-        if lr_scheduler:
-            handlers.append(lr_scheduler)
+        # # LR Scheduler
+        # __,lr_scheduler_handler = self.lr_scheduler_handler(context)
+        # if lr_scheduler_handler:
+        #     handlers.append(lr_scheduler_handler)
 
         if context.local_rank == 0:
             handlers.extend(
@@ -599,6 +599,7 @@ class BasicTrainTask(TrainTask):
 
         context.train_datalist, context.val_datalist = self.partition_datalist(context)
         context.network, context.optimizer = self._create_network_and_optimizer(context)
+        context.lr_scheduler, context.lr_scheduler_handler = self._create_lr_schedulers(context)
         context.evaluator = self._create_evaluator(context)
         context.trainer = self._create_trainer(context)
 
@@ -702,6 +703,11 @@ class BasicTrainTask(TrainTask):
             )
         return network, optimizer
 
+    def _create_lr_schedulers(self, context: Context):
+        lr_scheduler, lr_scheduler_handler = self.lr_schedulers(context)
+
+        return lr_scheduler, lr_scheduler_handler
+
     def _create_evaluator(self, context: Context):
         evaluator = None
         if context.val_datalist and len(context.val_datalist) > 0:
@@ -710,7 +716,7 @@ class BasicTrainTask(TrainTask):
                 val_hanlders.append(
                     CheckpointSaver(
                         save_dir=context.output_dir,
-                        save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer}, #save_dict={self._model_dict_key: context.network},
+                        save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer, 'lr_scheduler': context.lr_scheduler}, 
                         save_key_metric=True,
                         key_metric_filename=self._key_metric_filename,
                         n_saved=self._n_saved,
@@ -752,8 +758,7 @@ class BasicTrainTask(TrainTask):
             train_handlers.append(
                 CheckpointSaver(
                     save_dir=context.output_dir,
-                    save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer}, #{self._model_dict_key: context.network},
-                    save_interval=self._train_save_interval,
+                    save_dict={self._model_dict_key: context.network, 'optimizer': context.optimizer, 'lr_scheduler': context.lr_scheduler},
                     save_final=True,
                     final_filename=self._final_filename,
                     save_key_metric=True,

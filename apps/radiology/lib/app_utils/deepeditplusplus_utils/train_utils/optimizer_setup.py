@@ -61,5 +61,5 @@ def run_get_train_lr_scheduler(self_dict, context, func_version_param):
         # return LrScheduleHandler(lr_scheduler, print_lr=True, step_transform=lambda x: x.state.output[0]["loss"])
 
         lr_scheduler = torch.optim.lr_scheduler.StepLR(context.optimizer, step_size=1000, gamma=0.1)
-        return LrScheduleHandler(lr_scheduler, print_lr=True)
+        return lr_scheduler, LrScheduleHandler(lr_scheduler, print_lr=True)
      

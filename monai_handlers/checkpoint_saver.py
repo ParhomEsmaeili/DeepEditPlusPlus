@@ -120,6 +120,19 @@ class CheckpointSaver:
         self._name = name
         self._final_filename = final_filename
 
+        ###################
+        self.save_final = save_final
+        self.file_prefix = file_prefix
+        self.save_key_metric = save_key_metric
+        self.n_saved = n_saved
+        self.key_metric_name = key_metric_name
+        self.key_metric_filename = key_metric_filename
+        self.key_metric_n_saved = key_metric_n_saved 
+        self.key_metric_save_state = key_metric_save_state
+        self.key_metric_greater_or_equal = key_metric_greater_or_equal
+        self.key_metric_negative_sign = key_metric_negative_sign 
+
+
         class _DiskSaver(DiskSaver):
             """
             Enhance the DiskSaver to support fixed filename.
@@ -142,29 +155,103 @@ class CheckpointSaver:
                     filename = self.filename
                 super().remove(filename=filename)
 
-        if save_final:
+
+        ##########################################
+        self._DiskSaver = _DiskSaver
+        ###########################################
+
+        # if save_final:
+
+        #     def _final_func(engine: Engine) -> Any:
+        #         return engine.state.iteration
+
+        #     self._final_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=_DiskSaver(dirname=self.save_dir, filename=self._final_filename),
+        #         filename_prefix=file_prefix,
+        #         score_function=_final_func,
+        #         score_name="final_iteration",
+        #     )
+
+        # if save_key_metric:
+
+        #     def _score_func(engine: Engine) -> Any:
+        #         if isinstance(key_metric_name, str):
+        #             metric_name = key_metric_name
+        #         elif hasattr(engine.state, "key_metric_name"):
+        #             metric_name = engine.state.key_metric_name
+        #         else:
+        #             raise ValueError(
+        #                 f"Incompatible values: save_key_metric=True and key_metric_name={key_metric_name}."
+        #             )
+        #         metric = engine.state.metrics[metric_name]
+        #         if not is_scalar(metric):
+        #             warnings.warn(
+        #                 "key metric is not a scalar value, skip metric comparison and don't save a model."
+        #                 "please use other metrics as key metric, or change the `reduction` mode to 'mean'."
+        #                 f"got metric: {metric_name}={metric}."
+        #             )
+        #             return -1
+        #         return (-1 if key_metric_negative_sign else 1) * metric
+
+        #     if key_metric_filename is not None and key_metric_n_saved > 1:
+        #         raise ValueError("if using fixed filename to save the best metric model, we should only save 1 model.")
+
+        #     self._key_metric_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=_DiskSaver(dirname=self.save_dir, filename=key_metric_filename),
+        #         filename_prefix=file_prefix,
+        #         score_function=_score_func,
+        #         score_name="key_metric",
+        #         n_saved=key_metric_n_saved,
+        #         include_self=key_metric_save_state,
+        #         greater_or_equal=key_metric_greater_or_equal,
+        #     )
+
+        # if save_interval > 0:
+
+        #     def _interval_func(engine: Engine) -> Any:
+        #         return engine.state.epoch if self.epoch_level else engine.state.iteration
+
+        #     self._interval_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=_DiskSaver(dirname=self.save_dir),
+        #         filename_prefix=file_prefix,
+        #         score_function=_interval_func,
+        #         score_name="epoch" if self.epoch_level else "iteration",
+        #         n_saved=n_saved,
+        #     )
+
+        #######################################
+
+        #Updated to store in the attributes.. 
+
+        # self.save_dict['engine'] = engine 
+        # self.save_dict['grad_scaler'] = engine.scaler 
+
+        if self.save_final:
 
             def _final_func(engine: Engine) -> Any:
                 return engine.state.iteration
 
             self._final_checkpoint = Checkpoint(
                 to_save=self.save_dict,
-                save_handler=_DiskSaver(dirname=self.save_dir, filename=self._final_filename),
-                filename_prefix=file_prefix,
+                save_handler=self._DiskSaver(dirname=self.save_dir, filename=self._final_filename),
+                filename_prefix=self.file_prefix,
                 score_function=_final_func,
                 score_name="final_iteration",
             )
 
-        if save_key_metric:
+        if self.save_key_metric:
 
             def _score_func(engine: Engine) -> Any:
-                if isinstance(key_metric_name, str):
-                    metric_name = key_metric_name
+                if isinstance(self.key_metric_name, str):
+                    metric_name = self.key_metric_name
                 elif hasattr(engine.state, "key_metric_name"):
                     metric_name = engine.state.key_metric_name
                 else:
                     raise ValueError(
-                        f"Incompatible values: save_key_metric=True and key_metric_name={key_metric_name}."
+                        f"Incompatible values: save_key_metric=True and key_metric_name={self.key_metric_name}."
                     )
                 metric = engine.state.metrics[metric_name]
                 if not is_scalar(metric):
@@ -174,35 +261,36 @@ class CheckpointSaver:
                         f"got metric: {metric_name}={metric}."
                     )
                     return -1
-                return (-1 if key_metric_negative_sign else 1) * metric
+                return (-1 if self.key_metric_negative_sign else 1) * metric
 
-            if key_metric_filename is not None and key_metric_n_saved > 1:
+            if self.key_metric_filename is not None and self.key_metric_n_saved > 1:
                 raise ValueError("if using fixed filename to save the best metric model, we should only save 1 model.")
 
             self._key_metric_checkpoint = Checkpoint(
                 to_save=self.save_dict,
-                save_handler=_DiskSaver(dirname=self.save_dir, filename=key_metric_filename),
-                filename_prefix=file_prefix,
+                save_handler=self._DiskSaver(dirname=self.save_dir, filename=self.key_metric_filename),
+                filename_prefix=self.file_prefix,
                 score_function=_score_func,
                 score_name="key_metric",
-                n_saved=key_metric_n_saved,
-                include_self=key_metric_save_state,
-                greater_or_equal=key_metric_greater_or_equal,
+                n_saved=self.key_metric_n_saved,
+                include_self=self.key_metric_save_state,
+                greater_or_equal=self.key_metric_greater_or_equal,
             )
 
-        if save_interval > 0:
+        if self.save_interval > 0:
 
             def _interval_func(engine: Engine) -> Any:
                 return engine.state.epoch if self.epoch_level else engine.state.iteration
 
             self._interval_checkpoint = Checkpoint(
                 to_save=self.save_dict,
-                save_handler=_DiskSaver(dirname=self.save_dir),
-                filename_prefix=file_prefix,
+                save_handler=self._DiskSaver(dirname=self.save_dir),
+                filename_prefix=self.file_prefix,
                 score_function=_interval_func,
                 score_name="epoch" if self.epoch_level else "iteration",
-                n_saved=n_saved,
+                n_saved=self.n_saved,
             )
+
 
     def load_state_dict(self, state_dict: dict) -> None:
         """
@@ -235,6 +323,74 @@ class CheckpointSaver:
         Args:
             engine: Ignite Engine, it can be a trainer, validator or evaluator.
         """
+
+        # self.save_dict['engine'] = engine 
+        # # self.save_dict['grad_scaler'] = engine.scaler 
+
+        # if self.save_final:
+
+        #     def _final_func(engine: Engine) -> Any:
+        #         return engine.state.iteration
+
+        #     self._final_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=self._DiskSaver(dirname=self.save_dir, filename=self._final_filename),
+        #         filename_prefix=self.file_prefix,
+        #         score_function=_final_func,
+        #         score_name="final_iteration",
+        #     )
+
+        # if self.save_key_metric:
+
+        #     def _score_func(engine: Engine) -> Any:
+        #         if isinstance(self.key_metric_name, str):
+        #             metric_name = self.key_metric_name
+        #         elif hasattr(engine.state, "key_metric_name"):
+        #             metric_name = engine.state.key_metric_name
+        #         else:
+        #             raise ValueError(
+        #                 f"Incompatible values: save_key_metric=True and key_metric_name={self.key_metric_name}."
+        #             )
+        #         metric = engine.state.metrics[metric_name]
+        #         if not is_scalar(metric):
+        #             warnings.warn(
+        #                 "key metric is not a scalar value, skip metric comparison and don't save a model."
+        #                 "please use other metrics as key metric, or change the `reduction` mode to 'mean'."
+        #                 f"got metric: {metric_name}={metric}."
+        #             )
+        #             return -1
+        #         return (-1 if self.key_metric_negative_sign else 1) * metric
+
+        #     if self.key_metric_filename is not None and self.key_metric_n_saved > 1:
+        #         raise ValueError("if using fixed filename to save the best metric model, we should only save 1 model.")
+
+        #     self._key_metric_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=self._DiskSaver(dirname=self.save_dir, filename=self.key_metric_filename),
+        #         filename_prefix=self.file_prefix,
+        #         score_function=_score_func,
+        #         score_name="key_metric",
+        #         n_saved=self.key_metric_n_saved,
+        #         include_self=self.key_metric_save_state,
+        #         greater_or_equal=self.key_metric_greater_or_equal,
+        #     )
+
+        # if self.save_interval > 0:
+
+        #     def _interval_func(engine: Engine) -> Any:
+        #         return engine.state.epoch if self.epoch_level else engine.state.iteration
+
+        #     self._interval_checkpoint = Checkpoint(
+        #         to_save=self.save_dict,
+        #         save_handler=self._DiskSaver(dirname=self.save_dir),
+        #         filename_prefix=self.file_prefix,
+        #         score_function=_interval_func,
+        #         score_name="epoch" if self.epoch_level else "iteration",
+        #         n_saved=self.n_saved,
+        #     )
+
+        ###################################################################################################
+
         if self._name is None:
             self.logger = engine.logger
         if self._final_checkpoint is not None:

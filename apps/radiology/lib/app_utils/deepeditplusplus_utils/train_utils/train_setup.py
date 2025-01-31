@@ -164,7 +164,7 @@ class DeepEditPlusPlus(BasicTrainTask):
     def optimizer(self, context: Context):
         return run_get_train_optimizer(dict(vars(self)), context, self.optimizer_version_param)
 
-    def lr_scheduler_handler(self, context: Context):
+    def lr_schedulers(self, context: Context):
         return run_get_train_lr_scheduler(dict(vars(self)), context, self.lr_scheduler_version_param)
 
     def loss_function(self, context: Context):
